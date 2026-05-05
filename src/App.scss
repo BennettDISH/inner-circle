@@ -1,0 +1,463 @@
+@use 'styles/variables' as *;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: $font-body;
+  background: $bg-primary;
+  color: $text-primary;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+a {
+  color: $accent-light;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-md $space-xl;
+  background: $bg-secondary;
+  border-bottom: 1px solid $border;
+
+  &__logo {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: $accent-light;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+    &:hover { text-decoration: none; color: $accent; }
+  }
+
+  &__links {
+    display: flex;
+    gap: $space-md;
+    align-items: center;
+  }
+
+  &__link {
+    color: $text-secondary;
+    font-size: 0.9rem;
+    &:hover { color: $text-primary; text-decoration: none; }
+    &--active { color: $accent-light; }
+  }
+}
+
+.page {
+  flex: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: $space-xl;
+
+  @media (max-width: $mobile) {
+    padding: $space-md;
+  }
+}
+
+.page-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: $space-lg;
+  letter-spacing: -0.5px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-lg;
+  flex-wrap: wrap;
+  gap: $space-md;
+}
+
+// Cards
+.card {
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+  padding: $space-lg;
+  margin-bottom: $space-md;
+  transition: border-color 0.2s, transform 0.2s;
+
+  &:hover { border-color: $accent-glow; transform: translateY(-1px); }
+
+  &__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: $space-sm;
+  }
+
+  &__subtitle {
+    color: $text-secondary;
+    font-size: 0.85rem;
+  }
+
+  &__meta {
+    display: flex;
+    gap: $space-sm;
+    margin-top: $space-md;
+    flex-wrap: wrap;
+  }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $space-md;
+}
+
+// Forms
+.form-group {
+  margin-bottom: $space-lg;
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: $text-secondary;
+    margin-bottom: $space-xs;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: $space-sm $space-md;
+    background: $bg-primary;
+    border: 1px solid $border;
+    border-radius: $radius-sm;
+    color: $text-primary;
+    font-family: $font-body;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: $accent;
+      box-shadow: 0 0 0 3px $accent-glow;
+    }
+
+    &::placeholder { color: $text-muted; }
+  }
+
+  textarea {
+    min-height: 90px;
+    resize: vertical;
+  }
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-md;
+
+  @media (max-width: $mobile) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Buttons
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-sm $space-lg;
+  border: none;
+  border-radius: $radius-sm;
+  font-family: $font-body;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+
+  &--primary {
+    background: $accent;
+    color: #1a1a1a;
+    &:hover { background: $accent-light; text-decoration: none; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+
+  &--secondary {
+    background: transparent;
+    color: $text-secondary;
+    border: 1px solid $border;
+    &:hover { border-color: $accent; color: $text-primary; text-decoration: none; }
+  }
+
+  &--danger {
+    background: transparent;
+    color: $danger;
+    border: 1px solid $danger;
+    &:hover { background: rgba($danger, 0.1); }
+  }
+
+  &--sso {
+    background: linear-gradient(135deg, $accent, $accent-light);
+    color: #1a1a1a;
+    width: 100%;
+    justify-content: center;
+    padding: $space-md;
+    font-size: 1rem;
+    font-weight: 600;
+    &:hover { box-shadow: 0 4px 20px $accent-glow; text-decoration: none; }
+  }
+
+  &--full { width: 100%; justify-content: center; }
+  &--small { padding: 4px 10px; font-size: 0.8rem; }
+}
+
+// Badges
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+
+  &--have { background: rgba($accent, 0.15); color: $accent-light; }
+  &--need { background: rgba($accent-2, 0.15); color: $accent-2; }
+  &--skill { background: rgba($warning, 0.15); color: $warning; }
+  &--pending { background: rgba($warning, 0.15); color: $warning; }
+  &--accepted { background: rgba($success, 0.15); color: $success; }
+  &--declined { background: rgba($danger, 0.15); color: $danger; }
+  &--completed { background: rgba($accent, 0.15); color: $accent-light; }
+  &--count { background: $bg-primary; color: $text-secondary; }
+}
+
+// Tabs
+.tabs {
+  display: flex;
+  gap: $space-xs;
+  border-bottom: 1px solid $border;
+  margin-bottom: $space-lg;
+
+  button {
+    background: transparent;
+    border: none;
+    color: $text-secondary;
+    padding: $space-sm $space-md;
+    font-family: $font-body;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+
+    &:hover { color: $text-primary; }
+    &.active {
+      color: $accent-light;
+      border-bottom-color: $accent;
+    }
+  }
+}
+
+// Join code display
+.join-code {
+  display: inline-block;
+  background: $bg-primary;
+  padding: $space-sm $space-md;
+  border-radius: $radius-sm;
+  font-family: $font-mono;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  color: $accent-light;
+  border: 1px dashed $border;
+  cursor: pointer;
+  user-select: all;
+}
+
+.tag {
+  display: inline-block;
+  background: rgba($accent, 0.08);
+  border: 1px solid rgba($accent, 0.2);
+  color: $accent-light;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+// Empty state
+.empty-state {
+  text-align: center;
+  padding: $space-2xl;
+  color: $text-muted;
+  border: 1px dashed $border;
+  border-radius: $radius-md;
+
+  &__icon { font-size: 2rem; margin-bottom: $space-md; }
+  &__text { font-size: 1rem; margin-bottom: $space-md; }
+}
+
+.alert {
+  padding: $space-sm $space-md;
+  border-radius: $radius-sm;
+  margin-bottom: $space-md;
+  font-size: 0.9rem;
+
+  &--error { background: rgba($danger, 0.1); color: $danger; border: 1px solid rgba($danger, 0.3); }
+  &--success { background: rgba($success, 0.1); color: $success; border: 1px solid rgba($success, 0.3); }
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: $space-md;
+  margin: $space-lg 0;
+  color: $text-muted;
+  font-size: 0.8rem;
+
+  &::before, &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: $border;
+  }
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-2xl;
+  color: $text-muted;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-lg;
+}
+
+.modal {
+  background: $bg-secondary;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  width: 100%;
+  max-width: 520px;
+  padding: $space-xl;
+
+  &__title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: $space-lg;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $space-md;
+    justify-content: flex-end;
+    margin-top: $space-lg;
+  }
+}
+
+.hero {
+  text-align: center;
+  padding: $space-2xl 0;
+  margin-bottom: $space-xl;
+
+  h1 {
+    font-size: 2.2rem;
+    letter-spacing: -1px;
+    margin-bottom: $space-sm;
+  }
+  p {
+    color: $text-secondary;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+.auth-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-lg;
+  background: radial-gradient(circle at top right, rgba($accent, 0.05), transparent 400px),
+              radial-gradient(circle at bottom left, rgba($accent-2, 0.05), transparent 400px);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: $bg-secondary;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  padding: $space-2xl;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+
+  h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: $space-sm;
+    text-align: center;
+    color: $accent-light;
+  }
+
+  p {
+    color: $text-secondary;
+    text-align: center;
+    margin-bottom: $space-xl;
+    font-size: 0.95rem;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+    margin-bottom: $space-lg;
+    text-align: center;
+  }
+}
+
+.auth-footer {
+  margin-top: $space-xl;
+  text-align: center;
+  font-size: 0.9rem;
+  color: $text-secondary;
+}
+
+.error-message {
+  color: $danger;
+  background: rgba($danger, 0.1);
+  padding: $space-sm;
+  border-radius: $radius-sm;
+  font-size: 0.85rem;
+  margin-bottom: $space-md;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba($accent, 0.2);
+  border-top-color: $accent;
+  border-radius: 50%;
+  margin: $space-lg auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
