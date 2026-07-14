@@ -1,7 +1,11 @@
-const AUTH_URL = process.env.AUTH_SERVICE_URL;
+export const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL;
+export const SSO_CLIENT_ID = process.env.SSO_CLIENT_ID;
+export const SSO_ENABLED = Boolean(
+  AUTH_SERVICE_URL && SSO_CLIENT_ID && process.env.SSO_CLIENT_SECRET
+);
 
 export async function centralRegister({ username, email, password, first_name, last_name }) {
-  const res = await fetch(`${AUTH_URL}/api/auth/proxy/register`, {
+  const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/proxy/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -18,7 +22,7 @@ export async function centralRegister({ username, email, password, first_name, l
 }
 
 export async function centralLogin({ email, password }) {
-  const res = await fetch(`${AUTH_URL}/api/auth/proxy/login`, {
+  const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/proxy/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -35,7 +39,7 @@ export async function centralLogin({ email, password }) {
 }
 
 export async function exchangeCode(code) {
-  const res = await fetch(`${AUTH_URL}/oauth/token`, {
+  const res = await fetch(`${AUTH_SERVICE_URL}/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

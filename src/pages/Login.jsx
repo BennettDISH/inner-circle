@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const { ssoLogin, login } = useAuth();
+  const { ssoLogin, login, ssoEnabled } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,13 +31,17 @@ export default function Login() {
         <h1>inner circle</h1>
         <p>A trusted network for sharing what you have and need.</p>
         
-        <button className="btn btn--sso" onClick={ssoLogin}>
-          Sign in with Central SSO
-        </button>
+        {ssoEnabled && (
+          <>
+            <button className="btn btn--sso" onClick={ssoLogin}>
+              Sign in with Central SSO
+            </button>
 
-        <div className="divider">
-          <span>or use email</span>
-        </div>
+            <div className="divider">
+              <span>or use email</span>
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleLocalLogin}>
           {error && <div className="error-message">{error}</div>}
