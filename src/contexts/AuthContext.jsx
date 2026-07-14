@@ -5,6 +5,14 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/config')
+      .then(res => (res.ok ? res.json() : { ssoEnabled: false }))
+      .then(data => setSsoEnabled(!!data.ssoEnabled))
+      .catch(() => setSsoEnabled(false));
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -39,14 +47,15 @@ export function AuthProvider({ children }) {
   };
 
   const ssoLogin = () => {
-    const clientId = import.meta.env.VITE_SSO_CLIENT_ID;
-    const authUrl = import.meta.env.VITE_AUTH_SERVICE_URL;
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-    window.location.href = `${authUrl}/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`;
+    // The client_id and auth-service URL are held server-side; we only generate a random
+    // state and bounce through our own /sso/login, which builds the authorize URL.
+    const state = (window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
+    sessionStorage.setItem('sso_state', state);
+    window.location.href = `/api/auth/sso/login?state=${state}`;
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, ssoLogin }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, ssoLogin, ssoEnabled }}>
       {!loading && children}
     </AuthContext.Provider>
   );

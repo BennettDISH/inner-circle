@@ -15,6 +15,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust the proxy (Railway) so req.protocol reflects the original https scheme when
+// building the SSO redirect_uri.
+app.set('trust proxy', true);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(morgan('tiny'));

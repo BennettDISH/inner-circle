@@ -1,10 +1,31 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
-import { centralRegister, centralLogin, exchangeCode } from '../config/sso.js';
+import { centralRegister, centralLogin, exchangeCode, AUTH_SERVICE_URL, SSO_CLIENT_ID, SSO_ENABLED } from '../config/sso.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
+
+// The SPA route that renders AuthCallback and posts the code back to /sso-callback.
+const CALLBACK_PATH = '/auth/callback';
+
+// Public config so the client can decide whether to show the SSO button without any
+// build-time (VITE) vars — SSO is configured entirely server-side.
+router.get('/config', (req, res) => {
+  res.json({ ssoEnabled: SSO_ENABLED });
+});
+
+// Begin SSO: build the /oauth/authorize URL SERVER-side so the client_id and auth-service
+// URL never depend on the browser bundle. The client passes a random state to round-trip.
+router.get('/sso/login', (req, res) => {
+  if (!SSO_ENABLED) return res.status(503).send('SSO is not configured');
+  const state = req.query.state || '';
+  const base = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const redirectUri = `${base}${CALLBACK_PATH}`;
+  res.redirect(
+    `${AUTH_SERVICE_URL}/oauth/authorize?client_id=${SSO_CLIENT_ID}&redirect_uri=${redirectUri}&state=${state}`
+  );
+});
 
 async function findOrCreateProfile(centralUser) {
   const userId = centralUser.central_user_id;
