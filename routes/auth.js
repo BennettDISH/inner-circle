@@ -37,14 +37,16 @@ async function findOrCreateProfile(centralUser) {
     await pool.query(
       `UPDATE profiles SET username=$1, email=$2, first_name=$3, last_name=$4, updated_at=NOW()
        WHERE central_user_id=$5`,
-      [centralUser.username, centralUser.email, centralUser.first_name, centralUser.last_name, userId]
+      [centralUser.username, centralUser.email || null, centralUser.first_name, centralUser.last_name, userId]
     );
-    return { ...existing[0], username: centralUser.username, email: centralUser.email };
+    return { ...existing[0], username: centralUser.username, email: centralUser.email || null };
   }
+  // Central accounts may have no email — store NULL, never '', so nothing can match on a
+  // blank email later.
   const { rows } = await pool.query(
     `INSERT INTO profiles (central_user_id, username, email, first_name, last_name)
      VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [userId, centralUser.username, centralUser.email, centralUser.first_name || '', centralUser.last_name || '']
+    [userId, centralUser.username, centralUser.email || null, centralUser.first_name || '', centralUser.last_name || '']
   );
   return rows[0];
 }
