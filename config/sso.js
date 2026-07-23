@@ -38,6 +38,24 @@ export async function centralLogin({ email, password }) {
   return res.json();
 }
 
+// Mint a central guest account for this app (one click, no redirect). Server-to-server,
+// authenticated by the app's client credentials — the browser never sees them.
+export async function centralGuest() {
+  const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/proxy/guest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: SSO_CLIENT_ID,
+      client_secret: process.env.SSO_CLIENT_SECRET,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Could not start a guest session');
+  }
+  return res.json();
+}
+
 export async function exchangeCode(code) {
   const res = await fetch(`${AUTH_SERVICE_URL}/oauth/token`, {
     method: 'POST',

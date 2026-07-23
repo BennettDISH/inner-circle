@@ -7,6 +7,21 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [guestLoading, setGuestLoading] = useState(false);
+
+  const handleGuest = async () => {
+    setError('');
+    setGuestLoading(true);
+    try {
+      const res = await fetch('/api/auth/guest', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start a guest session');
+      login(data.token, data.user);
+    } catch (err) {
+      setError(err.message);
+      setGuestLoading(false);
+    }
+  };
 
   const handleLocalLogin = async (e) => {
     e.preventDefault();
@@ -36,6 +51,12 @@ export default function Login() {
             <button className="btn btn--sso" onClick={ssoLogin}>
               Sign in with Central SSO
             </button>
+            <button className="btn" onClick={handleGuest} disabled={guestLoading} style={{ width: '100%', marginTop: '0.5rem' }}>
+              {guestLoading ? 'Starting…' : 'Continue as guest'}
+            </button>
+            <p className="muted" style={{ fontSize: '0.8rem', textAlign: 'center', marginTop: '0.5rem' }}>
+              No account needed. Keep it later by adding a username and password.
+            </p>
 
             <div className="divider">
               <span>or use email</span>
