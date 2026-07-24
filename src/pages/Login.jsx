@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const { ssoLogin, login, ssoEnabled } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,6 +18,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not start a guest session');
       login(data.token, data.user);
+      navigate('/');
     } catch (err) {
       setError(err.message);
       setGuestLoading(false);
@@ -35,6 +37,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
       login(data.token, data.user);
+      navigate('/');
     } catch (err) {
       setError(err.message);
     }
