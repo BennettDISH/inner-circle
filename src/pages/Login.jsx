@@ -52,7 +52,7 @@ export default function Login() {
         {ssoEnabled && (
           <>
             <button className="btn btn--sso" onClick={ssoLogin}>
-              Sign in with Central SSO
+              Sign in with Waypoint
             </button>
             <button className="btn" onClick={handleGuest} disabled={guestLoading} style={{ width: '100%', marginTop: '0.5rem' }}>
               {guestLoading ? 'Starting…' : 'Continue as guest'}
