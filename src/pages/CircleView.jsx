@@ -26,6 +26,13 @@ export default function CircleView() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const leaveCircle = () => {
+    if (!confirm(`Are you sure you want to leave ${circle.name}?`)) return;
+    api.delete(`/api/circles/${id}/leave`)
+      .then(() => navigate('/'))
+      .catch(err => alert(err.message));
+  };
+
   if (loading) return <div className="loading">Loading circle...</div>;
   if (error) return <div className="page"><div className="alert alert--error">{error}</div></div>;
 
@@ -49,6 +56,9 @@ export default function CircleView() {
           </div>
           <button className="btn btn--primary" onClick={() => navigate(`/circles/${id}/listings/new`)}>
             Post Something
+          </button>
+          <button className="btn btn--danger" onClick={leaveCircle}>
+            Leave Circle
           </button>
         </div>
       </div>
