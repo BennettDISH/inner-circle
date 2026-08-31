@@ -68,31 +68,46 @@ export default function CircleView() {
           {filteredListings.map(listing => (
             <div key={listing.id} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span className={`badge badge--${listing.kind}`}>
-                  {listing.kind === 'have' ? 'OFFER' : 'NEED'}
-                </span>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <span className={`badge badge--${listing.kind}`}>
+                    {listing.kind === 'have' ? 'OFFER' : 'NEED'}
+                  </span>
+                  {listing.category && <span className="badge badge--count">{listing.category}</span>}
+                </div>
                 <span className="byline">by {listing.username}</span>
               </div>
               <h3 className="card__title" style={{ marginTop: '0.5rem' }}>{listing.title}</h3>
-              <p className="card__subtitle" style={{ marginBottom: '1rem' }}>{listing.description}</p>
-              
-              {listing.central_user_id !== user.central_user_id ? (
-                <button 
-                  className="btn btn--secondary btn--small btn--full"
-                  onClick={() => {
-                    const message = prompt('Send a message with your request:');
-                    if (message !== null) {
-                      api.post('/api/requests', { listing_id: listing.id, message })
-                        .then(() => alert('Request sent!'))
-                        .catch(err => alert(err.message));
-                    }
-                  }}
-                >
-                  Request
-                </button>
-              ) : (
-                <span className="badge badge--count">Your Listing</span>
+              <p className="card__subtitle">{listing.description}</p>
+              {listing.availability && (
+                <p className="card__subtitle" style={{ marginTop: '0.5rem' }}>
+                  <strong>Availability:</strong> {listing.availability}
+                </p>
               )}
+              {listing.tags && listing.tags.length > 0 && (
+                <div className="card__meta">
+                  {listing.tags.map(tag => <span key={tag} className="tag">{tag}</span>)}
+                </div>
+              )}
+
+              <div style={{ marginTop: '1rem' }}>
+                {listing.central_user_id !== user.central_user_id ? (
+                  <button
+                    className="btn btn--secondary btn--small btn--full"
+                    onClick={() => {
+                      const message = prompt('Send a message with your request:');
+                      if (message !== null) {
+                        api.post('/api/requests', { listing_id: listing.id, message })
+                          .then(() => alert('Request sent!'))
+                          .catch(err => alert(err.message));
+                      }
+                    }}
+                  >
+                    Request
+                  </button>
+                ) : (
+                  <span className="badge badge--count">Your Listing</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

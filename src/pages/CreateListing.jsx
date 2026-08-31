@@ -13,6 +13,7 @@ export default function CreateListing() {
     title: '',
     description: '',
     availability: '',
+    tags: '',
   });
 
   const handleSubmit = async (e) => {
@@ -20,7 +21,11 @@ export default function CreateListing() {
     setLoading(true);
     setError('');
     try {
-      await api.post('/api/listings', { ...formData, circle_id: Number(circleId) });
+      await api.post('/api/listings', {
+        ...formData,
+        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        circle_id: Number(circleId),
+      });
       navigate(`/circles/${circleId}`);
     } catch (err) {
       setError(err.message);
@@ -86,6 +91,15 @@ export default function CreateListing() {
             value={formData.availability} 
             onChange={e => setFormData({ ...formData, availability: e.target.value })}
             placeholder="e.g. Free, Trade for coffee, Available weekends"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Tags (comma-separated)</label>
+          <input
+            value={formData.tags}
+            onChange={e => setFormData({ ...formData, tags: e.target.value })}
+            placeholder="e.g. garden, tools, weekend"
           />
         </div>
 
