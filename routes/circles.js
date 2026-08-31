@@ -73,6 +73,7 @@ router.post('/join', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   const circleId = Number(req.params.id);
+  if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
   const { rows: members } = await pool.query(
     `SELECT cm.*, p.username, p.first_name, p.last_name
      FROM circle_members cm
@@ -88,9 +89,11 @@ router.get('/:id', async (req, res) => {
 });
 
 router.delete('/:id/leave', async (req, res) => {
+  const circleId = Number(req.params.id);
+  if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
   await pool.query(
     'DELETE FROM circle_members WHERE circle_id = $1 AND central_user_id = $2',
-    [Number(req.params.id), req.user.central_user_id]
+    [circleId, req.user.central_user_id]
   );
   res.json({ ok: true });
 });
