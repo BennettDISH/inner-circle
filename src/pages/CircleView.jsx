@@ -7,6 +7,7 @@ export default function CircleView() {
   const { id } = useParams();
   const { user } = useAuth();
   const [circle, setCircle] = useState(null);
+  const [members, setMembers] = useState([]);
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,6 +21,7 @@ export default function CircleView() {
     ])
       .then(([circleRes, listingsRes]) => {
         setCircle(circleRes.circle);
+        setMembers(circleRes.members || []);
         setListings(listingsRes.listings || []);
       })
       .catch(err => setError(err.message))
@@ -57,9 +59,26 @@ export default function CircleView() {
         <button className={activeTab === 'all' ? 'active' : ''} onClick={() => setActiveTab('all')}>All</button>
         <button className={activeTab === 'have' ? 'active' : ''} onClick={() => setActiveTab('have')}>Offers</button>
         <button className={activeTab === 'need' ? 'active' : ''} onClick={() => setActiveTab('need')}>Needs</button>
+        <button className={activeTab === 'members' ? 'active' : ''} onClick={() => setActiveTab('members')}>Members ({members.length})</button>
       </div>
 
-      {filteredListings.length === 0 ? (
+      {activeTab === 'members' ? (
+        <div className="card-grid">
+          {members.map(member => (
+            <div key={member.central_user_id} className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3 className="card__title">
+                  {[member.first_name, member.last_name].filter(Boolean).join(' ') || member.username}
+                </h3>
+                <span className={`badge badge--${member.role === 'admin' ? 'admin' : 'count'}`}>{member.role}</span>
+              </div>
+              <p className="card__subtitle">
+                {member.username}{member.central_user_id === user.central_user_id ? ' (you)' : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : filteredListings.length === 0 ? (
         <div className="empty-state">
           <p className="empty-state__text">No listings found in this category.</p>
         </div>
