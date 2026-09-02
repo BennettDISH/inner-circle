@@ -104,13 +104,4 @@ router.get('/profile', authenticate, (req, res) => {
   res.json({ user: req.user });
 });
 
-router.put('/profile', authenticate, async (req, res) => {
-  const { bio } = req.body;
-  const { rows } = await pool.query(
-    'UPDATE profiles SET bio=$1, updated_at=NOW() WHERE central_user_id=$2 RETURNING *',
-    [bio || '', req.user.central_user_id]
-  );
-  res.json({ user: rows[0] });
-});
-
 export default router;

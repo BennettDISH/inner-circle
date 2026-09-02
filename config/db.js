@@ -15,7 +15,6 @@ export async function initDb() {
       email VARCHAR(255),
       first_name VARCHAR(100),
       last_name VARCHAR(100),
-      bio TEXT DEFAULT '',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -23,6 +22,10 @@ export async function initDb() {
     -- Central accounts may have no email (the auth-service made it optional), so the local
     -- mirror must accept NULL. Widening only — safe to re-run on every boot.
     ALTER TABLE profiles ALTER COLUMN email DROP NOT NULL;
+
+    -- bio was never read or written by any UI; drop it from existing databases too.
+    -- Idempotent — safe to re-run on every boot.
+    ALTER TABLE profiles DROP COLUMN IF EXISTS bio;
 
     CREATE TABLE IF NOT EXISTS circles (
       id SERIAL PRIMARY KEY,
