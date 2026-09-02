@@ -4,7 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
-const VALID_KINDS = ['have', 'need', 'skill'];
+const VALID_KINDS = ['have', 'need'];
 const VALID_CATEGORIES = ['item', 'time', 'space', 'skill', 'service', 'event', 'other'];
 
 router.use(authenticate);
@@ -69,6 +69,8 @@ router.put('/:id', async (req, res) => {
   }
 
   const { kind, category, title, description, availability, tags, active } = req.body;
+  if (kind != null && !VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
+  if (category != null && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
   const { rows } = await pool.query(
     `UPDATE listings
      SET kind = COALESCE($1, kind),
