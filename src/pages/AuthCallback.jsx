@@ -15,6 +15,16 @@ export default function AuthCallback() {
       return;
     }
 
+    // Verify the random state generated in ssoLogin came back unchanged (CSRF check),
+    // then clear it so it can only be used once.
+    const state = searchParams.get('state');
+    const storedState = sessionStorage.getItem('sso_state');
+    if (!state || state !== storedState) {
+      setError('SSO state mismatch. Please try logging in again.');
+      return;
+    }
+    sessionStorage.removeItem('sso_state');
+
     fetch('/api/auth/sso-callback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
