@@ -47,11 +47,24 @@ export default function MyListings() {
           {listings.map(listing => (
             <div key={listing.id} className={`card ${!listing.active ? 'card--inactive' : ''}`} style={{ opacity: listing.active ? 1 : 0.6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className={`badge badge--${listing.kind}`}>{listing.kind.toUpperCase()}</span>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <span className={`badge badge--${listing.kind}`}>{listing.kind.toUpperCase()}</span>
+                  {listing.category && <span className="badge badge--count">{listing.category}</span>}
+                </div>
                 <span className="byline">in {listing.circle_name}</span>
               </div>
               <h3 className="card__title" style={{ marginTop: '0.5rem' }}>{listing.title}</h3>
               <p className="card__subtitle">{listing.description}</p>
+              {listing.availability && (
+                <p className="card__subtitle" style={{ marginTop: '0.5rem' }}>
+                  <strong>Availability:</strong> {listing.availability}
+                </p>
+              )}
+              {listing.tags && listing.tags.length > 0 && (
+                <div className="card__meta">
+                  {listing.tags.map(tag => <span key={tag} className="tag">{tag}</span>)}
+                </div>
+              )}
               
               <div className="card__meta" style={{ justifyContent: 'flex-end', gap: '0.5rem' }}>
                 <button 
