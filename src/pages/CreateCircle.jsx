@@ -15,7 +15,7 @@ export default function CreateCircle() {
     setError('');
     try {
       const data = await api.post('/api/circles', { name, description });
-      navigate(`/circles/${data.id}`);
+      navigate(`/circles/${data.circle.id}`);
     } catch (err) {
       setError(err.message);
     } finally {
