@@ -8,6 +8,9 @@ const router = Router();
 const VALID_KINDS = ['have', 'need'];
 const VALID_CATEGORIES = ['item', 'time', 'space', 'skill', 'service', 'event', 'other'];
 
+// tags is a TEXT[] column; anything but a list of strings makes Postgres reject the query.
+const validTags = (tags) => tags == null || (Array.isArray(tags) && tags.every((t) => typeof t === 'string'));
+
 router.use(authenticate);
 
 async function memberOf(centralUserId, circleId) {
@@ -47,22 +50,26 @@ router.get('/', wrap(async (req, res) => {
 router.post('/', wrap(async (req, res) => {
   const { circle_id, kind, category, title, description, availability, tags } = req.body;
   if (!circle_id || !title) return res.status(400).json({ error: 'circle_id and title required' });
+  const circleId = Number(circle_id);
+  if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
   if (!VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
   if (category && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
-  if (!(await memberOf(req.user.central_user_id, circle_id))) {
+  if (!validTags(tags)) return res.status(400).json({ error: 'Tags must be a list of strings' });
+  if (!(await memberOf(req.user.central_user_id, circleId))) {
     return res.status(403).json({ error: 'Not a member' });
   }
 
   const { rows } = await pool.query(
     `INSERT INTO listings (circle_id, central_user_id, kind, category, title, description, availability, tags)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [circle_id, req.user.central_user_id, kind, category || 'item', title, description || '', availability || '', tags || []]
+    [circleId, req.user.central_user_id, kind, category || 'item', title, description || '', availability || '', tags || []]
   );
   res.json({ listing: rows[0] });
 }));
 
 router.put('/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid listing id' });
   const { rows: existing } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   if (!existing[0]) return res.status(404).json({ error: 'Not found' });
   if (existing[0].central_user_id !== req.user.central_user_id) {
@@ -72,6 +79,7 @@ router.put('/:id', wrap(async (req, res) => {
   const { kind, category, title, description, availability, tags, active } = req.body;
   if (kind != null && !VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
   if (category != null && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
+  if (!validTags(tags)) return res.status(400).json({ error: 'Tags must be a list of strings' });
   const { rows } = await pool.query(
     `UPDATE listings
      SET kind = COALESCE($1, kind),
@@ -90,6 +98,7 @@ router.put('/:id', wrap(async (req, res) => {
 
 router.delete('/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid listing id' });
   const { rows } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   if (!rows[0]) return res.status(404).json({ error: 'Not found' });
   if (rows[0].central_user_id !== req.user.central_user_id) {

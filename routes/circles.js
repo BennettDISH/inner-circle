@@ -56,7 +56,7 @@ router.post('/join', wrap(async (req, res) => {
   const { join_code } = req.body;
   const { rows: circles } = await pool.query(
     'SELECT * FROM circles WHERE join_code = $1',
-    [(join_code || '').toUpperCase()]
+    [String(join_code ?? '').toUpperCase()]
   );
   if (!circles[0]) return res.status(404).json({ error: 'Circle not found' });
 

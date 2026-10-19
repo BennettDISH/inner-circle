@@ -10,7 +10,9 @@ router.use(authenticate);
 
 router.post('/', wrap(async (req, res) => {
   const { listing_id, message } = req.body;
-  const { rows: listings } = await pool.query('SELECT * FROM listings WHERE id = $1', [listing_id]);
+  const listingId = Number(listing_id);
+  if (!Number.isInteger(listingId)) return res.status(400).json({ error: 'Invalid listing id' });
+  const { rows: listings } = await pool.query('SELECT * FROM listings WHERE id = $1', [listingId]);
   if (!listings[0]) return res.status(404).json({ error: 'Listing not found' });
   if (listings[0].central_user_id === req.user.central_user_id) {
     return res.status(400).json({ error: 'Cannot request your own listing' });
@@ -24,7 +26,7 @@ router.post('/', wrap(async (req, res) => {
   const { rows } = await pool.query(
     `INSERT INTO requests (listing_id, from_user_id, to_user_id, message)
      VALUES ($1, $2, $3, $4) RETURNING *`,
-    [listing_id, req.user.central_user_id, listings[0].central_user_id, message || '']
+    [listingId, req.user.central_user_id, listings[0].central_user_id, message || '']
   );
   res.json({ request: rows[0] });
 }));
@@ -50,6 +52,7 @@ router.get('/', wrap(async (req, res) => {
 
 router.put('/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid request id' });
   const { status } = req.body;
   if (!VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
