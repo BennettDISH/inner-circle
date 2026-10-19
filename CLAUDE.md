@@ -14,7 +14,7 @@ npm test             # node --test test/*.test.js
 
 ## Key files
 - `server.js`: `trust proxy` on, helmet (CSP off), open CORS, morgan, JSON body; routers under `/api/auth`, `/api/circles`, `/api/listings`, `/api/requests`; `/health`; SPA fallback. Boot runs `initDb()` first and exits if it fails.
-- `config/db.js`: the pool (its `error` listener logs a dropped idle connection instead of crashing) and the whole schema, applied on every boot. No migrations; keep changes idempotent (`IF NOT EXISTS`, `DROP COLUMN IF EXISTS`).
+- `config/db.js`: the pool (its `error` listener logs a dropped idle connection instead of crashing), `toId()` (routes check every id with it: an int4 or null, which they answer with 400), and the whole schema, applied on every boot. No migrations; keep changes idempotent (`IF NOT EXISTS`, `DROP COLUMN IF EXISTS`).
 - `config/sso.js`: `centralRegister`, `centralLogin`, `centralGuest`, `exchangeCode`. `SSO_ENABLED` needs all three SSO vars.
 - `middleware/auth.js`: `authenticate` verifies the Bearer JWT (`{ central_user_id, username }`) and loads the profile; `req.user.is_admin` comes from `ADMIN_CENTRAL_USER_IDS`.
 - `routes/auth.js`: config, SSO start, register/login (proxied to Waypoint), sso-callback, guest, profile. `findOrCreateProfile` mirrors the Waypoint account into `profiles`.

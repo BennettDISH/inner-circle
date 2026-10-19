@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool from '../config/db.js';
+import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
 
@@ -22,9 +22,10 @@ async function memberOf(centralUserId, circleId) {
 }
 
 router.get('/', wrap(async (req, res) => {
-  const circleId = Number(req.query.circle_id);
   const kind = req.query.kind;
-  if (!circleId) return res.status(400).json({ error: 'circle_id required' });
+  if (!req.query.circle_id) return res.status(400).json({ error: 'circle_id required' });
+  const circleId = toId(req.query.circle_id);
+  if (circleId === null) return res.status(400).json({ error: 'Invalid circle id' });
   if (!(await memberOf(req.user.central_user_id, circleId))) {
     return res.status(403).json({ error: 'Not a member' });
   }
@@ -50,8 +51,8 @@ router.get('/', wrap(async (req, res) => {
 router.post('/', wrap(async (req, res) => {
   const { circle_id, kind, category, title, description, availability, tags } = req.body;
   if (!circle_id || !title) return res.status(400).json({ error: 'circle_id and title required' });
-  const circleId = Number(circle_id);
-  if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
+  const circleId = toId(circle_id);
+  if (circleId === null) return res.status(400).json({ error: 'Invalid circle id' });
   if (!VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
   if (category && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
   if (!validTags(tags)) return res.status(400).json({ error: 'Tags must be a list of strings' });
@@ -68,8 +69,8 @@ router.post('/', wrap(async (req, res) => {
 }));
 
 router.put('/:id', wrap(async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  const id = toId(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'Invalid listing id' });
   const { rows: existing } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   if (!existing[0]) return res.status(404).json({ error: 'Not found' });
   if (existing[0].central_user_id !== req.user.central_user_id) {
@@ -97,8 +98,8 @@ router.put('/:id', wrap(async (req, res) => {
 }));
 
 router.delete('/:id', wrap(async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  const id = toId(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'Invalid listing id' });
   const { rows } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   if (!rows[0]) return res.status(404).json({ error: 'Not found' });
   if (rows[0].central_user_id !== req.user.central_user_id) {

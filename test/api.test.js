@@ -11,6 +11,9 @@ before(async () => { app = await startApp(); });
 after(async () => { await app?.stop(); });
 
 const MISSING = 999999;
+const INT4_MAX = 2147483647; // the largest Postgres INTEGER
+const INT4_MIN = -2147483648;
+const HUGE = 99999999999;
 
 /** A circle made by a fresh guest. Returns the owner and the circle. */
 async function newCircle(name = 'Family') {
@@ -462,6 +465,28 @@ describe('malformed ids', () => {
       ['POST', '/api/requests', { listing_id: MISSING }, 404],
       ['PUT', '/api/requests/abc', { status: 'accepted' }, 400],
       ['PUT', `/api/requests/${MISSING}`, { status: 'accepted' }, 404],
+      // A fraction, or a number outside Postgres INTEGER, is malformed too: it never reaches
+      // the database.
+      ['GET', '/api/listings?circle_id=1.5', undefined, 400],
+      ['GET', `/api/listings?circle_id=${HUGE}`, undefined, 400],
+      ['GET', `/api/circles/${HUGE}`, undefined, 400],
+      ['GET', `/api/circles/${INT4_MAX + 1}`, undefined, 400],
+      ['GET', `/api/circles/${INT4_MIN - 1}`, undefined, 400],
+      ['DELETE', `/api/circles/${HUGE}/leave`, undefined, 400],
+      ['POST', '/api/listings', { circle_id: 1.5, kind: 'have', title: 'x' }, 400],
+      ['POST', '/api/listings', { circle_id: HUGE, kind: 'have', title: 'x' }, 400],
+      ['PUT', '/api/listings/1.5', { title: 'x' }, 400],
+      ['PUT', `/api/listings/${HUGE}`, { title: 'x' }, 400],
+      ['DELETE', `/api/listings/${HUGE}`, undefined, 400],
+      ['POST', '/api/requests', { listing_id: 1.5 }, 400],
+      ['POST', '/api/requests', { listing_id: HUGE }, 400],
+      ['PUT', '/api/requests/1.5', { status: 'accepted' }, 400],
+      ['PUT', `/api/requests/${HUGE}`, { status: 'accepted' }, 400],
+      // The largest INTEGER is still well-formed and simply matches nothing.
+      ['PUT', `/api/listings/${INT4_MAX}`, { title: 'x' }, 404],
+      ['DELETE', `/api/listings/${INT4_MAX}`, undefined, 404],
+      ['POST', '/api/requests', { listing_id: INT4_MAX }, 404],
+      ['PUT', `/api/requests/${INT4_MAX}`, { status: 'accepted' }, 404],
     ];
     for (const [method, url, body, status] of cases) {
       const res = await g.as(method, url, body);
@@ -504,20 +529,5 @@ describe('bad input does not take the server down', () => {
     // The pooled connection that held the failed transaction still works.
     const next = await g.as('POST', '/api/circles', { name: 'Second try' });
     assert.equal(next.status, 200);
-  });
-
-  it('ids that reach Postgres in a form it rejects get an error, not a crash', async () => {
-    // Today these slip past the id checks (a fraction, an id beyond INTEGER) and Postgres
-    // rejects them, so they answer 500. A 400 or 404 would be fine too; the point is that the
-    // server answers in JSON and keeps running.
-    const { owner } = await newCircle();
-    for (const url of ['/api/listings?circle_id=1.5', '/api/circles/99999999999', '/api/listings/99999999999']) {
-      const method = url.startsWith('/api/listings/') ? 'DELETE' : 'GET';
-      const res = await owner.as(method, url);
-      assert.ok(res.status >= 400, `${method} ${url} answered ${res.status}`);
-      assert.equal(typeof res.body.error, 'string', url);
-    }
-    assert.ok(app.alive());
-    assert.equal((await owner.as('GET', '/api/circles')).status, 200);
   });
 });

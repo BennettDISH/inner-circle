@@ -4,7 +4,6 @@ Open ideas, planned work and known issues. One line each.
 
 ## Open
 - No tests for the client (the API has a suite in `test/`).
-- A fractional `circle_id` on `GET /api/listings` and ids beyond the INTEGER range pass the id checks and answer 500 from Postgres.
 - Over-long names and titles (VARCHAR limits) reach Postgres: circle create answers 400 with the raw Postgres message, listing create answers 500.
 - `ADMIN_CENTRAL_USER_IDS` sets `req.user.is_admin`, but nothing uses it yet.
 - Join codes come from `Math.random` and there is no rate limit on `POST /api/circles/join`.

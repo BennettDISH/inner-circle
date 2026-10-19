@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool from '../config/db.js';
+import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
 
@@ -10,8 +10,8 @@ router.use(authenticate);
 
 router.post('/', wrap(async (req, res) => {
   const { listing_id, message } = req.body;
-  const listingId = Number(listing_id);
-  if (!Number.isInteger(listingId)) return res.status(400).json({ error: 'Invalid listing id' });
+  const listingId = toId(listing_id);
+  if (listingId === null) return res.status(400).json({ error: 'Invalid listing id' });
   const { rows: listings } = await pool.query('SELECT * FROM listings WHERE id = $1', [listingId]);
   if (!listings[0]) return res.status(404).json({ error: 'Listing not found' });
   if (listings[0].central_user_id === req.user.central_user_id) {
@@ -51,8 +51,8 @@ router.get('/', wrap(async (req, res) => {
 }));
 
 router.put('/:id', wrap(async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid request id' });
+  const id = toId(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'Invalid request id' });
   const { status } = req.body;
   if (!VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 

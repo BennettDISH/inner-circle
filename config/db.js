@@ -13,6 +13,16 @@ pool.on('error', (err) => {
   console.error('Postgres idle client error:', err.message);
 });
 
+// Every id column is SERIAL or INTEGER (int4). A fraction or a number outside that range
+// makes Postgres fail the query, so routes check ids with this first. Returns the id as a
+// number, or null when it can't be one.
+const INT4_MIN = -2147483648;
+const INT4_MAX = 2147483647;
+export function toId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) && id >= INT4_MIN && id <= INT4_MAX ? id : null;
+}
+
 export async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profiles (

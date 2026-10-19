@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool from '../config/db.js';
+import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
 
@@ -73,8 +73,8 @@ router.post('/join', wrap(async (req, res) => {
 }));
 
 router.get('/:id', wrap(async (req, res) => {
-  const circleId = Number(req.params.id);
-  if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
+  const circleId = toId(req.params.id);
+  if (circleId === null) return res.status(400).json({ error: 'Invalid circle id' });
   const { rows: members } = await pool.query(
     `SELECT cm.*, p.username, p.first_name, p.last_name
      FROM circle_members cm
@@ -90,8 +90,8 @@ router.get('/:id', wrap(async (req, res) => {
 }));
 
 router.delete('/:id/leave', wrap(async (req, res) => {
-  const circleId = Number(req.params.id);
-  if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
+  const circleId = toId(req.params.id);
+  if (circleId === null) return res.status(400).json({ error: 'Invalid circle id' });
   await pool.query(
     'DELETE FROM circle_members WHERE circle_id = $1 AND central_user_id = $2',
     [circleId, req.user.central_user_id]
