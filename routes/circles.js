@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
+import { wrap } from '../middleware/wrap.js';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ function generateJoinCode() {
 
 router.use(authenticate);
 
-router.get('/', async (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT c.*, cm.role,
        (SELECT COUNT(*)::int FROM circle_members WHERE circle_id = c.id) AS member_count,
@@ -22,9 +23,9 @@ router.get('/', async (req, res) => {
     [req.user.central_user_id]
   );
   res.json({ circles: rows });
-});
+}));
 
-router.post('/', async (req, res) => {
+router.post('/', wrap(async (req, res) => {
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
 
@@ -49,9 +50,9 @@ router.post('/', async (req, res) => {
   } finally {
     client.release();
   }
-});
+}));
 
-router.post('/join', async (req, res) => {
+router.post('/join', wrap(async (req, res) => {
   const { join_code } = req.body;
   const { rows: circles } = await pool.query(
     'SELECT * FROM circles WHERE join_code = $1',
@@ -69,9 +70,9 @@ router.post('/join', async (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
-});
+}));
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', wrap(async (req, res) => {
   const circleId = Number(req.params.id);
   if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
   const { rows: members } = await pool.query(
@@ -86,9 +87,9 @@ router.get('/:id', async (req, res) => {
 
   const { rows: circles } = await pool.query('SELECT * FROM circles WHERE id = $1', [circleId]);
   res.json({ circle: circles[0], members });
-});
+}));
 
-router.delete('/:id/leave', async (req, res) => {
+router.delete('/:id/leave', wrap(async (req, res) => {
   const circleId = Number(req.params.id);
   if (!Number.isInteger(circleId)) return res.status(400).json({ error: 'Invalid circle id' });
   await pool.query(
@@ -96,6 +97,6 @@ router.delete('/:id/leave', async (req, res) => {
     [circleId, req.user.central_user_id]
   );
   res.json({ ok: true });
-});
+}));
 
 export default router;

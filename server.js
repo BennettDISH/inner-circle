@@ -29,6 +29,15 @@ app.use('/api/circles', circleRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/requests', requestRoutes);
 
+// Errors from the API (wrapped route handlers, bad JSON bodies) end up here: log them and
+// answer in JSON instead of leaving the request hanging.
+app.use('/api', (err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (status === 500) console.error('API error:', err);
+  res.status(status).json({ error: status === 500 ? 'Something went wrong' : 'Bad request' });
+});
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use(express.static(path.join(__dirname, 'dist')));

@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import pool from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
+import { wrap } from '../middleware/wrap.js';
 
 const router = Router();
 const VALID_STATUSES = ['pending', 'accepted', 'declined', 'completed'];
 
 router.use(authenticate);
 
-router.post('/', async (req, res) => {
+router.post('/', wrap(async (req, res) => {
   const { listing_id, message } = req.body;
   const { rows: listings } = await pool.query('SELECT * FROM listings WHERE id = $1', [listing_id]);
   if (!listings[0]) return res.status(404).json({ error: 'Listing not found' });
@@ -26,9 +27,9 @@ router.post('/', async (req, res) => {
     [listing_id, req.user.central_user_id, listings[0].central_user_id, message || '']
   );
   res.json({ request: rows[0] });
-});
+}));
 
-router.get('/', async (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const direction = req.query.direction || 'incoming';
   const col = direction === 'outgoing' ? 'from_user_id' : 'to_user_id';
 
@@ -45,9 +46,9 @@ router.get('/', async (req, res) => {
     [req.user.central_user_id]
   );
   res.json({ requests: rows });
-});
+}));
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body;
   if (!VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
@@ -67,6 +68,6 @@ router.put('/:id', async (req, res) => {
     [status, id]
   );
   res.json({ request: rows[0] });
-});
+}));
 
 export default router;

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
+import { wrap } from '../middleware/wrap.js';
 
 const router = Router();
 
@@ -17,7 +18,7 @@ async function memberOf(centralUserId, circleId) {
   return !!rows[0];
 }
 
-router.get('/', async (req, res) => {
+router.get('/', wrap(async (req, res) => {
   const circleId = Number(req.query.circle_id);
   const kind = req.query.kind;
   if (!circleId) return res.status(400).json({ error: 'circle_id required' });
@@ -41,9 +42,9 @@ router.get('/', async (req, res) => {
     params
   );
   res.json({ listings: rows });
-});
+}));
 
-router.post('/', async (req, res) => {
+router.post('/', wrap(async (req, res) => {
   const { circle_id, kind, category, title, description, availability, tags } = req.body;
   if (!circle_id || !title) return res.status(400).json({ error: 'circle_id and title required' });
   if (!VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
@@ -58,9 +59,9 @@ router.post('/', async (req, res) => {
     [circle_id, req.user.central_user_id, kind, category || 'item', title, description || '', availability || '', tags || []]
   );
   res.json({ listing: rows[0] });
-});
+}));
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
   const { rows: existing } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   if (!existing[0]) return res.status(404).json({ error: 'Not found' });
@@ -85,9 +86,9 @@ router.put('/:id', async (req, res) => {
     [kind, category, title, description, availability, tags, active, id]
   );
   res.json({ listing: rows[0] });
-});
+}));
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', wrap(async (req, res) => {
   const id = Number(req.params.id);
   const { rows } = await pool.query('SELECT * FROM listings WHERE id = $1', [id]);
   if (!rows[0]) return res.status(404).json({ error: 'Not found' });
@@ -96,9 +97,9 @@ router.delete('/:id', async (req, res) => {
   }
   await pool.query('DELETE FROM listings WHERE id = $1', [id]);
   res.json({ ok: true });
-});
+}));
 
-router.get('/mine', async (req, res) => {
+router.get('/mine', wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT l.*, c.name AS circle_name
      FROM listings l
@@ -108,6 +109,6 @@ router.get('/mine', async (req, res) => {
     [req.user.central_user_id]
   );
   res.json({ listings: rows });
-});
+}));
 
 export default router;
