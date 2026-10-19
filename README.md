@@ -26,7 +26,9 @@ Every sign-in goes through the auth service; there are no local passwords.
 Production: `npm run build` then `npm start`.
 
 ## Test and build
-There are no automated tests yet. `npm run build` checks the front end compiles.
+`npm test` runs the API tests in `test/`: the real `server.js` against an in-memory Postgres
+(PGlite) and a stand-in Waypoint, so no database or secrets are needed. `npm run build`
+checks the front end compiles.
 
 ## Deploy
 Railway service `inner-circle` (production environment) auto-deploys on push to `master`.

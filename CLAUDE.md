@@ -8,8 +8,9 @@ npm run server       # node --watch server.js (API on PORT, default 3000)
 npm run dev          # Vite dev server, proxies /api to localhost:3000
 npm run build        # vite build -> dist/
 npm start            # node server.js (serves dist/ + /api)
+npm test             # node --test test/*.test.js
 ```
-No test suite and no lint script. A local run needs Postgres in `DATABASE_URL` and the Waypoint vars, since every sign-in goes through the auth service.
+`npm test` spawns the real `server.js` against PGlite served over the Postgres wire protocol, with a stand-in Waypoint for guest, register/login and the code exchange (`test/helpers.js`, which pins every env var the server reads). The helper drops the extra ReadyForQuery PGlite sends after an extended-protocol error; without that, the ROLLBACK in circle create gets out of step with `pg` and the server dies. No lint script. A local run needs Postgres in `DATABASE_URL` and the Waypoint vars, since every sign-in goes through the auth service.
 
 ## Key files
 - `server.js`: `trust proxy` on, helmet (CSP off), open CORS, morgan, JSON body; routers under `/api/auth`, `/api/circles`, `/api/listings`, `/api/requests`; `/health`; SPA fallback. Boot runs `initDb()` first and exits if it fails.

@@ -3,13 +3,17 @@
 Open ideas, planned work and known issues. One line each.
 
 ## Open
-- No tests. Membership checks in `routes/circles.js`, `routes/listings.js` and `routes/requests.js` are the risky paths to cover first.
+- No tests for the client (the API has a suite in `test/`).
+- The pool in `config/db.js` has no `error` listener, so an error on an idle connection (a dropped or restarted database) crashes the server.
+- A fractional `circle_id` on `GET /api/listings` and ids beyond the INTEGER range pass the id checks and answer 500 from Postgres.
+- Over-long names and titles (VARCHAR limits) reach Postgres: circle create answers 400 with the raw Postgres message, listing create answers 500.
 - `ADMIN_CENTRAL_USER_IDS` sets `req.user.is_admin`, but nothing uses it yet.
 - Join codes come from `Math.random` and there is no rate limit on `POST /api/circles/join`.
 - A circle whose last admin leaves has no admin left, and there is no way to remove a member or change a join code.
 - Requests can be sent on inactive listings.
 
 ## Done
+- First API test suite: auth, circles, listings, requests, malformed ids, bad input (2026-10-19).
 - Circle member list and a Leave Circle action on CircleView (2026-08-31).
 - OAuth state checked before the code exchange (2026-08-31).
 - Listing kind/category validated on update; vestigial `skill` kind and the unused bio column removed (2026-08-31).
