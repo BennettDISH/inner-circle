@@ -19,12 +19,13 @@ router.get('/config', (req, res) => {
 // URL never depend on the browser bundle. The client passes a random state to round-trip.
 router.get('/sso/login', (req, res) => {
   if (!SSO_ENABLED) return res.status(503).send('SSO is not configured');
-  const state = req.query.state || '';
+  const state = typeof req.query.state === 'string' ? req.query.state : '';
   const base = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${base}${CALLBACK_PATH}`;
-  res.redirect(
-    `${AUTH_SERVICE_URL}/oauth/authorize?client_id=${SSO_CLIENT_ID}&redirect_uri=${redirectUri}&state=${state}`
-  );
+  // Encode every param: a raw state containing "&" could append its own client_id or
+  // redirect_uri to the authorize URL.
+  const params = new URLSearchParams({ client_id: SSO_CLIENT_ID, redirect_uri: redirectUri, state });
+  res.redirect(`${AUTH_SERVICE_URL}/oauth/authorize?${params}`);
 });
 
 async function findOrCreateProfile(centralUser) {
