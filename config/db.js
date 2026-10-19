@@ -6,6 +6,13 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
+// An idle client can error (database restart, dropped connection). Without a listener
+// that 'error' event is unhandled and takes the whole server down; the pool drops the
+// broken client and makes a new one on the next query.
+pool.on('error', (err) => {
+  console.error('Postgres idle client error:', err.message);
+});
+
 export async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profiles (

@@ -10,11 +10,11 @@ npm run build        # vite build -> dist/
 npm start            # node server.js (serves dist/ + /api)
 npm test             # node --test test/*.test.js
 ```
-`npm test` spawns the real `server.js` against PGlite served over the Postgres wire protocol, with a stand-in Waypoint for guest, register/login and the code exchange (`test/helpers.js`, which pins every env var the server reads). The helper drops the extra ReadyForQuery PGlite sends after an extended-protocol error; without that, the ROLLBACK in circle create gets out of step with `pg` and the server dies. No lint script. A local run needs Postgres in `DATABASE_URL` and the Waypoint vars, since every sign-in goes through the auth service.
+`npm test` spawns the real `server.js` against PGlite served over the Postgres wire protocol, with a stand-in Waypoint for guest, register/login and the code exchange (`test/helpers.js`, which pins every env var the server reads). The helper drops the extra ReadyForQuery PGlite sends after an extended-protocol error; without that, the ROLLBACK in circle create gets out of step with `pg` and the server dies. `test/db.test.js` checks the pool on its own in a child process. No lint script. A local run needs Postgres in `DATABASE_URL` and the Waypoint vars, since every sign-in goes through the auth service.
 
 ## Key files
 - `server.js`: `trust proxy` on, helmet (CSP off), open CORS, morgan, JSON body; routers under `/api/auth`, `/api/circles`, `/api/listings`, `/api/requests`; `/health`; SPA fallback. Boot runs `initDb()` first and exits if it fails.
-- `config/db.js`: the pool and the whole schema, applied on every boot. No migrations; keep changes idempotent (`IF NOT EXISTS`, `DROP COLUMN IF EXISTS`).
+- `config/db.js`: the pool (its `error` listener logs a dropped idle connection instead of crashing) and the whole schema, applied on every boot. No migrations; keep changes idempotent (`IF NOT EXISTS`, `DROP COLUMN IF EXISTS`).
 - `config/sso.js`: `centralRegister`, `centralLogin`, `centralGuest`, `exchangeCode`. `SSO_ENABLED` needs all three SSO vars.
 - `middleware/auth.js`: `authenticate` verifies the Bearer JWT (`{ central_user_id, username }`) and loads the profile; `req.user.is_admin` comes from `ADMIN_CENTRAL_USER_IDS`.
 - `routes/auth.js`: config, SSO start, register/login (proxied to Waypoint), sso-callback, guest, profile. `findOrCreateProfile` mirrors the Waypoint account into `profiles`.
