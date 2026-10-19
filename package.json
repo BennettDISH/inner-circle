@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "start": "node server.js",
-    "server": "node --watch server.js"
+    "server": "node --watch server.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -24,6 +25,8 @@
     "sass": "^1.83.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "@electric-sql/pglite-socket": "^0.2.13",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
