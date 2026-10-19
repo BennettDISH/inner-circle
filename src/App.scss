@@ -323,7 +323,7 @@ a {
   align-items: center;
   gap: $space-md;
   margin: $space-lg 0;
-  color: $text-muted;
+  color: $text-secondary; // $text-muted is 2.75:1 on the auth card
   font-size: 0.8rem;
 
   &::before, &::after {
