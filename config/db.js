@@ -12,6 +12,12 @@ const pool = new Pool({
 pool.on('error', (err) => {
   console.error('Postgres idle client error:', err.message);
 });
+// A client checked out with pool.connect() loses the pool's listener while it is out, so
+// the same drop between two queries would still crash. Each client gets its own listener
+// for life; its next query fails and the route's error handling answers.
+pool.on('connect', (client) => {
+  client.on('error', (err) => console.error('Postgres client error:', err.message));
+});
 
 // Every id column is SERIAL or INTEGER (int4). A fraction or a number outside that range
 // makes Postgres fail the query, so routes check ids with this first. Returns the id as a

@@ -37,4 +37,20 @@ describe('database pool', () => {
     assert.match(out, /Postgres idle client error: Connection terminated unexpectedly/);
     assert.match(out, /still running/);
   });
+
+  it('an error on a checked-out client is logged and the process keeps running', async () => {
+    // A client handed out by pool.connect() (a transaction) has no pool listener while it is
+    // out, so a connection that drops between two queries emits 'error' on the client itself.
+    const { code, out } = await runModule(`
+      import pg from 'pg';
+      import pool from './config/db.js';
+      const client = new pg.Client();
+      pool.emit('connect', client);
+      setTimeout(() => client.emit('error', new Error('Connection terminated unexpectedly')));
+      setTimeout(() => { console.log('still running'); process.exit(0); }, 200);
+    `);
+    assert.equal(code, 0, out);
+    assert.match(out, /Postgres client error: Connection terminated unexpectedly/);
+    assert.match(out, /still running/);
+  });
 });
