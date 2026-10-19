@@ -44,25 +44,25 @@ export default function Register() {
           {error && <div className="error-message">{error}</div>}
           <div className="form-row">
             <div className="form-group">
-              <label>First Name</label>
-              <input name="first_name" value={formData.first_name} onChange={handleChange} required />
+              <label htmlFor="register-first-name">First Name</label>
+              <input id="register-first-name" name="first_name" autoComplete="given-name" value={formData.first_name} onChange={handleChange} required />
             </div>
             <div className="form-group">
-              <label>Last Name</label>
-              <input name="last_name" value={formData.last_name} onChange={handleChange} required />
+              <label htmlFor="register-last-name">Last Name</label>
+              <input id="register-last-name" name="last_name" autoComplete="family-name" value={formData.last_name} onChange={handleChange} required />
             </div>
           </div>
           <div className="form-group">
-            <label>Username</label>
-            <input name="username" value={formData.username} onChange={handleChange} required />
+            <label htmlFor="register-username">Username</label>
+            <input id="register-username" name="username" autoComplete="username" value={formData.username} onChange={handleChange} required />
           </div>
           <div className="form-group">
-            <label>Email</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} required />
+            <label htmlFor="register-email">Email</label>
+            <input id="register-email" type="email" name="email" autoComplete="email" value={formData.email} onChange={handleChange} required />
           </div>
           <div className="form-group">
-            <label>Password</label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} required />
+            <label htmlFor="register-password">Password</label>
+            <input id="register-password" type="password" name="password" autoComplete="new-password" value={formData.password} onChange={handleChange} required />
           </div>
           <button type="submit" className="btn btn--primary">Create Account</button>
         </form>

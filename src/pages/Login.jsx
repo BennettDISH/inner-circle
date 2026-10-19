@@ -70,18 +70,22 @@ export default function Login() {
         <form onSubmit={handleLocalLogin}>
           {error && <div className="error-message">{error}</div>}
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="login-email">Email</label>
             <input 
+              id="login-email"
               type="email" 
+              autoComplete="email"
               value={email} 
               onChange={e => setEmail(e.target.value)} 
               required 
             />
           </div>
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="login-password">Password</label>
             <input 
+              id="login-password"
               type="password" 
+              autoComplete="current-password"
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               required 
