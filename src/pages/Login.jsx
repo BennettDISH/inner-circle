@@ -54,7 +54,7 @@ export default function Login() {
             <button className="btn btn--sso" onClick={ssoLogin}>
               Sign in with Waypoint
             </button>
-            <button className="btn" onClick={handleGuest} disabled={guestLoading} style={{ width: '100%', marginTop: '0.5rem' }}>
+            <button className="btn btn--secondary btn--full" onClick={handleGuest} disabled={guestLoading} style={{ marginTop: '0.5rem' }}>
               {guestLoading ? 'Starting…' : 'Continue as guest'}
             </button>
             <p className="muted" style={{ fontSize: '0.8rem', textAlign: 'center', marginTop: '0.5rem' }}>

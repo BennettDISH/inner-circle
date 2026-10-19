@@ -168,6 +168,8 @@ a {
 
   @media (max-width: $mobile) {
     grid-template-columns: 1fr;
+    // Stacked, each .form-group's own margin is the spacing; a row gap would double it.
+    row-gap: 0;
   }
 }
 
@@ -437,6 +439,9 @@ a {
   text-align: center;
   font-size: 0.9rem;
   color: $text-secondary;
+
+  // Keep "Sign In" / "Create one" on one line on narrow phones
+  a { white-space: nowrap; }
 }
 
 .error-message {
