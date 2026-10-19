@@ -1,33 +1,57 @@
 # inner-circle
 
-A trusted network for friends and family to share what they **have**, **need**, and **offer**. Create
+A trusted network for friends and family to share what they **have** and **need**. Create
 circles, post listings, and manage incoming requests.
 
+Live: https://inner-circle-production-a7f8.up.railway.app
+
 ## Stack
-React 19 + Vite · Express · Postgres · SSO via `auth-service`
+React 19 + Vite · Express 4 · Postgres · SSO via `auth-service` (Waypoint)
 
 ## Getting started
 ```bash
 npm install
 cp .env.example .env      # DATABASE_URL, JWT_SECRET, AUTH_SERVICE_URL, SSO_CLIENT_ID/SECRET
 
-npm run server            # Express API (node --watch server.js)
-npm run dev               # Vite dev server
+npm run server            # Express API on PORT 3000 (node --watch server.js)
+npm run dev               # Vite dev server; proxies /api to localhost:3000
 ```
 
 SSO is configured entirely server-side. The client never sees the `client_id` or the
-auth-service URL: the "Sign in with Central SSO" button hits `GET /api/auth/sso/login`,
+auth-service URL: the "Sign in with Waypoint" button hits `GET /api/auth/sso/login`,
 which builds the `/oauth/authorize` redirect from `AUTH_SERVICE_URL` + `SSO_CLIENT_ID`.
 Only `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, and `SSO_CLIENT_SECRET` are needed (no `VITE_*`).
+Every sign-in goes through the auth service; there are no local passwords.
 
 Production: `npm run build` then `npm start`.
 
-## Layout
-- `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Login, Register, AuthCallback.
-- `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`.
+## Test and build
+There are no automated tests yet. `npm run build` checks the front end compiles.
 
 ## Deploy
-Railway.
+Railway service `inner-circle` (production environment) auto-deploys on push to `master`.
+`railway.toml` builds with `npm install --include=dev && npm run build` (vite is a
+devDependency) and starts `node server.js`. The schema is created on boot by `initDb()`.
+
+## Environment variables
+Names only; `.env.example` has comments.
+
+- `DATABASE_URL`: Postgres (required; the server exits if the schema can't be applied)
+- `JWT_SECRET`: signs the app's own 7-day session tokens
+- `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`: Waypoint
+- `APP_BASE_URL` (optional): public base for the SSO `redirect_uri`
+- `ADMIN_CENTRAL_USER_IDS` (optional): Waypoint ids flagged `is_admin`
+- `PORT`, `NODE_ENV`
+
+## Layout
+- `server.js`: Express app, `/health`, the four routers, SPA fallback to `dist/`.
+- `config/db.js`: pool and schema (`profiles`, `circles`, `circle_members`, `listings`, `requests`).
+- `config/sso.js`: server-to-server calls to the auth service.
+- `middleware/auth.js`: `authenticate` (Bearer JWT, profile re-read from the DB).
+- `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`.
+- `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Login, Register, AuthCallback.
 
 ## Notes
-Auth via `auth-service` (SSO). See `../PORTFOLIO.md`.
+- Open work and known issues: `docs/ROADMAP.md`.
+- Working notes for future chats: `CLAUDE.md`.
+- Fleet-wide ledger: `docs/PORTFOLIO.md` in the kingfisher repo.
