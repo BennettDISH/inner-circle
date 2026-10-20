@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDb } from './config/db.js';
+import { scheduleGuestSweep } from './services/guestSweep.js';
 import authRoutes from './routes/auth.js';
 import circleRoutes from './routes/circles.js';
 import listingRoutes from './routes/listings.js';
@@ -50,6 +51,7 @@ app.get('*', (req, res) => {
 initDb()
   .then(() => {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    scheduleGuestSweep(); // idle guests go a minute after boot, then daily
   })
   .catch((err) => {
     console.error('Database init failed:', err);
