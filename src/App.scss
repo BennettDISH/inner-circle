@@ -466,3 +466,98 @@ a {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+// Site admin (pages/Admin.jsx)
+.page--wide { max-width: 1400px; }
+
+.admin-muted { color: $text-secondary; font-size: 0.85rem; }
+
+.admin-toolbar {
+  display: flex;
+  gap: $space-sm;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: $space-md;
+
+  input {
+    flex: 1 1 240px;
+    max-width: 360px;
+    padding: $space-sm $space-md;
+    background: $bg-primary;
+    border: 1px solid $border;
+    border-radius: $radius-sm;
+    color: $text-primary;
+    font-family: $font-body;
+    font-size: 0.95rem;
+
+    &:focus { outline: none; border-color: $accent; box-shadow: 0 0 0 3px $accent-glow; }
+    &::placeholder { color: $text-secondary; }
+  }
+}
+
+.admin-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-xs;
+  font-size: 0.85rem;
+
+  button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th, td {
+    padding: $space-sm $space-md;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid $border;
+  }
+
+  th {
+    background: $bg-secondary;
+    color: $text-secondary;
+    font-weight: 600;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: $bg-card; }
+  .card__meta { margin-top: $space-xs; }
+}
+
+.admin-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: $accent-light;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-md;
+  margin-top: $space-md;
+
+  .btn:disabled { opacity: 0.4; cursor: default; }
+}

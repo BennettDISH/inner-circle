@@ -531,3 +531,12 @@ describe('bad input does not take the server down', () => {
     assert.equal(next.status, 200);
   });
 });
+
+describe('admin lists', () => {
+  it('are closed to everyone while ADMIN_CENTRAL_USER_IDS is empty', async () => {
+    const g = await app.guest();
+    assert.equal(g.user.is_admin, false);
+    const res = await g.as('GET', '/api/admin/users');
+    assert.equal(res.status, 403);
+  });
+});

@@ -42,16 +42,16 @@ Names only; `.env.example` has comments.
 - `JWT_SECRET`: signs the app's own 7-day session tokens
 - `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`: Waypoint
 - `APP_BASE_URL` (optional): public base for the SSO `redirect_uri`
-- `ADMIN_CENTRAL_USER_IDS` (optional): Waypoint ids flagged `is_admin`
+- `ADMIN_CENTRAL_USER_IDS` (optional): comma-separated Waypoint ids who can open the look-only `/admin` page; unset means nobody can
 - `PORT`, `NODE_ENV`
 
 ## Layout
-- `server.js`: Express app, `/health`, the four routers, SPA fallback to `dist/`.
+- `server.js`: Express app, `/health`, the five routers, SPA fallback to `dist/`.
 - `config/db.js`: pool and schema (`profiles`, `circles`, `circle_members`, `listings`, `requests`).
 - `config/sso.js`: server-to-server calls to the auth service.
 - `middleware/auth.js`: `authenticate` (Bearer JWT, profile re-read from the DB).
-- `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`.
-- `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Login, Register, AuthCallback.
+- `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`, `admin.js` (site admin lists, GET only).
+- `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Admin, Login, Register, AuthCallback.
 
 ## Notes
 - Open work and known issues: `docs/ROADMAP.md`.

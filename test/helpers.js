@@ -145,8 +145,9 @@ async function startWaypoint() {
   };
 }
 
-/** Start Postgres, the stand-in Waypoint and the app. Returns helpers and stop(). */
-export async function startApp() {
+/** Start Postgres, the stand-in Waypoint and the app. Returns helpers and stop().
+ *  `adminIds` is ADMIN_CENTRAL_USER_IDS (Waypoint ids start at 1000). */
+export async function startApp({ adminIds = '' } = {}) {
   const db = await startPostgres();
   const waypoint = await startWaypoint();
   const port = await freePort();
@@ -164,7 +165,7 @@ export async function startApp() {
       SSO_CLIENT_ID: CLIENT_ID,
       SSO_CLIENT_SECRET: CLIENT_SECRET,
       APP_BASE_URL,
-      ADMIN_CENTRAL_USER_IDS: '',
+      ADMIN_CENTRAL_USER_IDS: adminIds,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

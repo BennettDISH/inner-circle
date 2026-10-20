@@ -2,7 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { centralRegister, centralLogin, centralGuest, exchangeCode, AUTH_SERVICE_URL, SSO_CLIENT_ID, SSO_ENABLED } from '../config/sso.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, isAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -60,11 +60,16 @@ function issueToken(profile) {
   );
 }
 
+// What every sign-in answers: the app's token and the profile, flagged the way /profile flags it.
+function signedIn(profile) {
+  return { token: issueToken(profile), user: { ...profile, is_admin: isAdmin(profile.central_user_id) } };
+}
+
 router.post('/register', async (req, res) => {
   try {
     const data = await centralRegister(req.body);
     const profile = await findOrCreateProfile(data);
-    res.json({ token: issueToken(profile), user: profile });
+    res.json(signedIn(profile));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -74,7 +79,7 @@ router.post('/login', async (req, res) => {
   try {
     const data = await centralLogin(req.body);
     const profile = await findOrCreateProfile(data);
-    res.json({ token: issueToken(profile), user: profile });
+    res.json(signedIn(profile));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -84,7 +89,7 @@ router.post('/sso-callback', async (req, res) => {
   try {
     const data = await exchangeCode(req.body.code);
     const profile = await findOrCreateProfile(data);
-    res.json({ token: issueToken(profile), user: profile });
+    res.json(signedIn(profile));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -95,7 +100,7 @@ router.post('/guest', async (req, res) => {
   if (!SSO_ENABLED) return res.status(503).json({ error: 'Guest sign-in is not available' });
   try {
     const profile = await findOrCreateProfile(await centralGuest());
-    res.json({ token: issueToken(profile), user: profile });
+    res.json(signedIn(profile));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

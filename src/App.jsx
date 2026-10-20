@@ -10,6 +10,7 @@ import CircleView from './pages/CircleView';
 import CreateListing from './pages/CreateListing';
 import MyListings from './pages/MyListings';
 import RequestsInbox from './pages/RequestsInbox';
+import Admin from './pages/Admin';
 
 function Nav() {
   const { user, logout } = useAuth();
@@ -25,6 +26,7 @@ function Nav() {
         <Link to="/" className={isActive('/')}>Circles</Link>
         <Link to="/my-listings" className={isActive('/my-listings')}>My Listings</Link>
         <Link to="/requests" className={isActive('/requests')}>Requests</Link>
+        {user.is_admin && <Link to="/admin" className={isActive('/admin')}>Admin</Link>}
         <button onClick={logout} className="btn btn--secondary" style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
           Sign Out
         </button>
@@ -47,6 +49,7 @@ export default function App() {
         <Route path="/circles/:id/listings/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
         <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
         <Route path="/requests" element={<ProtectedRoute><RequestsInbox /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       </Routes>
     </div>
   );

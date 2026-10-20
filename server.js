@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import circleRoutes from './routes/circles.js';
 import listingRoutes from './routes/listings.js';
 import requestRoutes from './routes/requests.js';
+import adminRoutes from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -28,6 +29,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/circles', circleRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/requests', requestRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Errors from the API (wrapped route handlers, bad JSON bodies) end up here: log them and
 // answer in JSON instead of leaving the request hanging.
