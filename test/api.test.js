@@ -138,6 +138,27 @@ describe('auth', () => {
     assert.equal(bad.body.error, 'invalid_grant');
   });
 
+  it('a sign-in answers with the names it just stored', async () => {
+    const account = { central_user_id: 5100, username: 'kim', email: 'kim@example.test', first_name: 'Kim', last_name: 'Ro' };
+    await app.request('POST', '/api/auth/sso-callback', { body: { code: app.waypoint.issueCode(account) } });
+    const renamed = { ...account, first_name: 'Kimberly', last_name: 'Rowe' };
+    const again = await app.request('POST', '/api/auth/sso-callback', { body: { code: app.waypoint.issueCode(renamed) } });
+    assert.equal(again.status, 200);
+    assert.equal(again.body.user.first_name, 'Kimberly');
+    assert.equal(again.body.user.last_name, 'Rowe');
+    assert.equal(again.body.user.is_admin, false);
+  });
+
+  it('first sign-ins for the same account at once all succeed and make one profile', async () => {
+    const account = { central_user_id: 5200, username: 'lee', email: null, first_name: 'Lee', last_name: '' };
+    const codes = Array.from({ length: 6 }, () => app.waypoint.issueCode(account));
+    const results = await Promise.all(codes.map((code) => app.request('POST', '/api/auth/sso-callback', { body: { code } })));
+    assert.deepEqual(results.map((r) => r.status), codes.map(() => 200), JSON.stringify(results.map((r) => r.body.error)));
+    assert.ok(results.every((r) => r.body.user.central_user_id === 5200 && r.body.token));
+    const { rows } = await app.db.query('SELECT COUNT(*)::int AS n FROM profiles WHERE central_user_id = 5200');
+    assert.equal(rows[0].n, 1);
+  });
+
   it('SSO login redirects to Waypoint with every param encoded', async () => {
     const state = 'abc&client_id=evil&redirect_uri=http://evil.test';
     const res = await fetch(`${app.base}/api/auth/sso/login?state=${encodeURIComponent(state)}`, { redirect: 'manual' });
@@ -319,6 +340,28 @@ describe('listings', () => {
     assert.deepEqual(updated.body.listing.tags, ['tools', 'diy']);
     assert.equal(updated.body.listing.description, 'With bits');
     assert.equal(updated.body.listing.kind, 'have');
+  });
+
+  it('an edit cannot blank the title or set active to anything but true or false', async () => {
+    const { owner, circle } = await newCircle();
+    const id = (await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id })).body.listing.id;
+    for (const title of ['', '   ', 12, ['x']]) {
+      const res = await owner.as('PUT', `/api/listings/${id}`, { title });
+      assert.equal(res.status, 400, JSON.stringify(title));
+      assert.equal(res.body.error, 'Title required');
+    }
+    for (const active of ['maybe', 'false', 0, {}]) {
+      const res = await owner.as('PUT', `/api/listings/${id}`, { active });
+      assert.equal(res.status, 400, JSON.stringify(active));
+      assert.equal(res.body.error, 'active must be true or false');
+    }
+    const { rows } = await app.db.query('SELECT title, active FROM listings WHERE id = $1', [id]);
+    assert.deepEqual(rows, [{ title: 'Cordless drill', active: true }]);
+    // null still means "leave it as it is".
+    const kept = await owner.as('PUT', `/api/listings/${id}`, { title: null, active: null, description: 'Bits included' });
+    assert.equal(kept.status, 200);
+    assert.equal(kept.body.listing.title, 'Cordless drill');
+    assert.equal(kept.body.listing.active, true);
   });
 
   it('a deactivated listing leaves the circle list but stays in mine', async () => {
@@ -529,6 +572,41 @@ describe('bad input does not take the server down', () => {
     // The pooled connection that held the failed transaction still works.
     const next = await g.as('POST', '/api/circles', { name: 'Second try' });
     assert.equal(next.status, 200);
+  });
+});
+
+describe('unknown API paths', () => {
+  it('answer 404 in JSON, signed in or not, instead of the app page', async () => {
+    const g = await app.guest();
+    const cases = [
+      ['GET', '/api/nothing-here', undefined],
+      ['POST', '/api/nothing-here', undefined],
+      ['GET', '/api', undefined],
+      ['GET', '/api/circles/1/members', g.token],
+      ['PATCH', '/api/listings/1', g.token],
+    ];
+    for (const [method, url, token] of cases) {
+      const res = await app.request(method, url, { token });
+      assert.equal(res.status, 404, `${method} ${url}`);
+      assert.deepEqual(res.body, { error: 'Not found' }, `${method} ${url}`);
+    }
+    // Routers that need a token still ask for it first.
+    assert.equal((await app.request('GET', '/api/circles/1/members')).status, 401);
+  });
+});
+
+describe('schema', () => {
+  it('every foreign key column leads an index', async () => {
+    // Postgres indexes the key a foreign key points at, not the column that holds it. Without
+    // one, the lookups by that column and every delete of the row it names scan the table.
+    const { rows } = await app.db.query(`
+      SELECT c.conrelid::regclass::text AS tbl, a.attname AS col
+        FROM pg_constraint c
+        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+       WHERE c.contype = 'f' AND c.connamespace = 'public'::regnamespace
+         AND NOT EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1])
+       ORDER BY 1, 2`);
+    assert.deepEqual(rows, []);
   });
 });
 

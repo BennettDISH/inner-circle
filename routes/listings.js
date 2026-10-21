@@ -81,6 +81,10 @@ router.put('/:id', wrap(async (req, res) => {
   if (kind != null && !VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
   if (category != null && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
   if (!validTags(tags)) return res.status(400).json({ error: 'Tags must be a list of strings' });
+  // A title is required on create, so an edit can't blank it; active is a BOOLEAN column, and
+  // anything Postgres can't read as one made the update fail with a 500.
+  if (title != null && (typeof title !== 'string' || !title.trim())) return res.status(400).json({ error: 'Title required' });
+  if (active != null && typeof active !== 'boolean') return res.status(400).json({ error: 'active must be true or false' });
   const { rows } = await pool.query(
     `UPDATE listings
      SET kind = COALESCE($1, kind),

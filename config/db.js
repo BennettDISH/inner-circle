@@ -99,6 +99,12 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_listings_kind ON listings(kind);
     CREATE INDEX IF NOT EXISTS idx_requests_listing ON requests(listing_id);
     CREATE INDEX IF NOT EXISTS idx_requests_to ON requests(to_user_id);
+    -- Every foreign key column leads an index (test/api.test.js checks): the circle list looks
+    -- members up by user, outgoing requests by sender, and deleting a profile (the guest sweep)
+    -- has Postgres check each key that names it.
+    CREATE INDEX IF NOT EXISTS idx_members_user ON circle_members(central_user_id);
+    CREATE INDEX IF NOT EXISTS idx_requests_from ON requests(from_user_id);
+    CREATE INDEX IF NOT EXISTS idx_circles_created_by ON circles(created_by);
   `);
 }
 

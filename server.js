@@ -32,6 +32,10 @@ app.use('/api/listings', listingRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 
+// An API path no router answers is a 404 in JSON, not the SPA's index.html (a 200 the client
+// can't parse) from the fallback below.
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
 // Errors from the API (wrapped route handlers, bad JSON bodies) end up here: log them and
 // answer in JSON instead of leaving the request hanging.
 app.use('/api', (err, req, res, next) => {

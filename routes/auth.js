@@ -28,26 +28,21 @@ router.get('/sso/login', (req, res) => {
   res.redirect(`${AUTH_SERVICE_URL}/oauth/authorize?${params}`);
 });
 
+// Mirror the Waypoint account into profiles in one statement. A look-then-insert let two first
+// sign-ins at once (two tabs, a double click) both insert, and the loser answered 400 with
+// Postgres's duplicate-key message; it also answered with the names from before this sign-in.
+// Every sign-in stamps updated_at, which the guest sweep reads as "last seen".
 async function findOrCreateProfile(centralUser) {
-  const userId = centralUser.central_user_id;
-  const { rows: existing } = await pool.query(
-    'SELECT * FROM profiles WHERE central_user_id = $1',
-    [userId]
-  );
-  if (existing[0]) {
-    await pool.query(
-      `UPDATE profiles SET username=$1, email=$2, first_name=$3, last_name=$4, updated_at=NOW()
-       WHERE central_user_id=$5`,
-      [centralUser.username, centralUser.email || null, centralUser.first_name, centralUser.last_name, userId]
-    );
-    return { ...existing[0], username: centralUser.username, email: centralUser.email || null };
-  }
   // Central accounts may have no email — store NULL, never '', so nothing can match on a
   // blank email later.
   const { rows } = await pool.query(
     `INSERT INTO profiles (central_user_id, username, email, first_name, last_name)
-     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [userId, centralUser.username, centralUser.email || null, centralUser.first_name || '', centralUser.last_name || '']
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (central_user_id) DO UPDATE
+       SET username = EXCLUDED.username, email = EXCLUDED.email, first_name = EXCLUDED.first_name,
+           last_name = EXCLUDED.last_name, updated_at = NOW()
+     RETURNING *`,
+    [centralUser.central_user_id, centralUser.username, centralUser.email || null, centralUser.first_name || '', centralUser.last_name || '']
   );
   return rows[0];
 }
