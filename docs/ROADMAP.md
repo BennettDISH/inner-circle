@@ -10,6 +10,10 @@ Open ideas, planned work and known issues. One line each.
 - Requests can be sent on inactive listings.
 
 ## Done
+- Unknown `/api` paths answer a JSON 404; sign-in upserts the profile in one statement; a listing edit can't blank the title or send a non-boolean `active`; every foreign key column is indexed (2026-10-21).
+- Signed-in pages at phone width (nav, circle header, tabs, no iPhone focus zoom) and for keyboard and screen readers (join code button, main landmark, aria-current/aria-pressed, role="alert" errors) (2026-10-21).
+- Form labels tied to their fields on every page (2026-10-19, 2026-10-21).
+- Guest sweep: Waypoint guests idle for 30 days go, with circles only guests had a part in (2026-10-20).
 - Site admin page (`/admin`, ADMIN_CENTRAL_USER_IDS): look-only lists of users, circles, members, listings and requests, with search and 50 a page; join codes stay out (2026-10-20).
 - First API test suite: auth, circles, listings, requests, malformed ids, bad input (2026-10-19).
 - Circle member list and a Leave Circle action on CircleView (2026-08-31).

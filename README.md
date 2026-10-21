@@ -43,14 +43,17 @@ Names only; `.env.example` has comments.
 - `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`: Waypoint
 - `APP_BASE_URL` (optional): public base for the SSO `redirect_uri`
 - `ADMIN_CENTRAL_USER_IDS` (optional): comma-separated Waypoint ids who can open the look-only `/admin` page; unset means nobody can
+- `GUEST_RETENTION_DAYS` (optional, 30): guests not signed in for this many days are removed daily
+- `GUEST_CLEANUP_ENABLED` (optional): `false` turns the guest sweep off
 - `PORT`, `NODE_ENV`
 
 ## Layout
-- `server.js`: Express app, `/health`, the five routers, SPA fallback to `dist/`.
+- `server.js`: Express app, `/health`, the five routers (other `/api` paths are a JSON 404), SPA fallback to `dist/`.
 - `config/db.js`: pool and schema (`profiles`, `circles`, `circle_members`, `listings`, `requests`).
 - `config/sso.js`: server-to-server calls to the auth service.
 - `middleware/auth.js`: `authenticate` (Bearer JWT, profile re-read from the DB).
 - `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`, `admin.js` (site admin lists, GET only).
+- `services/guestSweep.js`: the daily removal of idle guests and the circles only guests had a part in.
 - `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Admin, Login, Register, AuthCallback.
 
 ## Notes

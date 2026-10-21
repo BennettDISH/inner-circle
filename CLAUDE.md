@@ -10,16 +10,17 @@ npm run build        # vite build -> dist/
 npm start            # node server.js (serves dist/ + /api)
 npm test             # node --test test/*.test.js
 ```
-`npm test` spawns the real `server.js` against PGlite served over the Postgres wire protocol, with a stand-in Waypoint for guest, register/login and the code exchange (`test/helpers.js`, which pins every env var the server reads). The helper drops the extra ReadyForQuery PGlite sends after an extended-protocol error; without that, the ROLLBACK in circle create gets out of step with `pg` and the server dies. `test/db.test.js` checks the pool on its own in a child process. No lint script. A local run needs Postgres in `DATABASE_URL` and the Waypoint vars, since every sign-in goes through the auth service.
+`npm test` spawns the real `server.js` against PGlite served over the Postgres wire protocol, with a stand-in Waypoint for guest, register/login and the code exchange (`test/helpers.js`, which pins every env var the server reads). The helper drops the extra ReadyForQuery PGlite sends after an extended-protocol error; without that, the ROLLBACK in circle create gets out of step with `pg` and the server dies. `test/api.test.js` covers the routes and the schema's indexes, `test/admin.test.js` the admin lists, `test/guestSweep.test.js` the sweep (straight against PGlite), and `test/db.test.js` checks the pool on its own in a child process. No lint script. A local run needs Postgres in `DATABASE_URL` and the Waypoint vars, since every sign-in goes through the auth service.
 
 ## Key files
-- `server.js`: `trust proxy` on, helmet (CSP off), open CORS, morgan, JSON body; routers under `/api/auth`, `/api/circles`, `/api/listings`, `/api/requests`, `/api/admin`; `/health`; SPA fallback. Boot runs `initDb()` first and exits if it fails.
-- `config/db.js`: the pool (its `error` listener logs a dropped idle connection instead of crashing), `toId()` (routes check every id with it: an int4 or null, which they answer with 400), and the whole schema, applied on every boot. No migrations; keep changes idempotent (`IF NOT EXISTS`, `DROP COLUMN IF EXISTS`).
+- `server.js`: `trust proxy` on, helmet (CSP off), open CORS, morgan, JSON body; routers under `/api/auth`, `/api/circles`, `/api/listings`, `/api/requests`, `/api/admin`; any other `/api` path is a JSON 404; `/health`; SPA fallback. Boot runs `initDb()` first and exits if it fails, then schedules the guest sweep.
+- `config/db.js`: the pool (its `error` listener logs a dropped idle connection instead of crashing), `toId()` (routes check every id with it: an int4 or null, which they answer with 400), and the whole schema, applied on every boot. No migrations; keep changes idempotent (`IF NOT EXISTS`, `DROP COLUMN IF EXISTS`). Every foreign key column leads an index; a test fails if a new key doesn't.
+- `services/guestSweep.js`: a minute after boot and then daily, removes Waypoint guests (`guest-adj-noun-NNNN` usernames) not signed in for `GUEST_RETENTION_DAYS` (30), with the circles only such guests had a part in. `GUEST_CLEANUP_ENABLED=false` turns it off. The header comment explains what it may take.
 - `config/sso.js`: `centralRegister`, `centralLogin`, `centralGuest`, `exchangeCode`. `SSO_ENABLED` needs all three SSO vars.
 - `middleware/auth.js`: `authenticate` verifies the Bearer JWT (`{ central_user_id, username }`) and loads the profile; `req.user.is_admin` comes from `ADMIN_CENTRAL_USER_IDS`.
-- `routes/auth.js`: config, SSO start, register/login (proxied to Waypoint), sso-callback, guest, profile. `findOrCreateProfile` mirrors the Waypoint account into `profiles`.
+- `routes/auth.js`: config, SSO start, register/login (proxied to Waypoint), sso-callback, guest, profile. `findOrCreateProfile` mirrors the Waypoint account into `profiles` with one upsert that stamps `updated_at` (the sweep's "last seen").
 - `routes/circles.js`: list mine, create (creator becomes circle `admin`), join by code, view (members only), leave.
-- `routes/listings.js`: list by circle (members only), create, update/delete (owner only), mine.
+- `routes/listings.js`: list by circle (members only), create, update/delete (owner only), mine. Update leaves out (or null) what it doesn't change; a blank title or a non-boolean `active` is a 400.
 - `routes/requests.js`: create on a listing in a circle you're in, list incoming/outgoing, update status (only the recipient accepts or declines).
 - `routes/admin.js`: site admin lists under `/api/admin` (users, circles, members, listings, requests), GET only, 403 unless `req.user.is_admin`. Each answers `{ items, total, page, page_size }` (50 a page) and takes `q` (ILIKE anywhere, `%` and `_` literal), `page` and id filters. Join codes never come out. `src/pages/Admin.jsx` is the page; the nav shows it to admins.
 - `src/services/api.js`: fetch wrapper that adds the token from localStorage.
@@ -36,4 +37,4 @@ npm test             # node --test test/*.test.js
 - Env vars are named in the README and explained in `.env.example`. Never commit `.env`.
 
 ## Current state
-Dormant since 2026-09-02 (a fix wave: member list, leave circle, OAuth state check, listing validation). Live and healthy. Open items live in `docs/ROADMAP.md`.
+Live and healthy; no product work since 2026-09-02. Upkeep in October 2026: an API test suite, crash and input fixes, the site admin page (2026-10-20), the guest sweep (2026-10-20), form labels. Open items live in `docs/ROADMAP.md`.
