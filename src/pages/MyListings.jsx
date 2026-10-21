@@ -36,7 +36,7 @@ export default function MyListings() {
     <div className="page">
       <h1 className="page-title">My Listings</h1>
       
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error" role="alert">{error}</div>}
 
       {listings.length === 0 ? (
         <div className="empty-state">

@@ -39,7 +39,7 @@ export default function CreateListing() {
       <h1 className="page-title">Post a Listing</h1>
       
       <form onSubmit={handleSubmit} className="card">
-        {error && <div className="alert alert--error">{error}</div>}
+        {error && <div className="alert alert--error" role="alert">{error}</div>}
 
         <div className="form-group">
           <label htmlFor="listing-kind">I have / I need</label>

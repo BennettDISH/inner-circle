@@ -36,7 +36,7 @@ export default function CircleView() {
   };
 
   if (loading) return <div className="loading">Loading circle...</div>;
-  if (error) return <div className="page"><div className="alert alert--error">{error}</div></div>;
+  if (error) return <div className="page"><div className="alert alert--error" role="alert">{error}</div></div>;
 
   const filteredListings = activeTab === 'all' 
     ? listings 
@@ -49,13 +49,21 @@ export default function CircleView() {
           <h1 className="page-title">{circle.name}</h1>
           <p className="byline">{circle.description}</p>
         </div>
-        <div className="page-header__actions" style={{ display: 'flex', gap: '1rem' }}>
-          <div className="join-code" title="Click to copy" onClick={() => {
-            navigator.clipboard.writeText(circle.join_code);
-            alert('Join code copied!');
-          }}>
+        <div className="page-header__actions">
+          <button
+            type="button"
+            className="join-code"
+            title="Click to copy"
+            aria-label={`Join code ${circle.join_code}, copy`}
+            onClick={() => {
+              // Clipboard access can be refused (permissions, plain http); the code stays selectable.
+              navigator.clipboard?.writeText(circle.join_code)
+                .then(() => alert('Join code copied!'))
+                .catch(() => {});
+            }}
+          >
             {circle.join_code}
-          </div>
+          </button>
           <button className="btn btn--primary" onClick={() => navigate(`/circles/${id}/listings/new`)}>
             Post Something
           </button>
@@ -66,10 +74,11 @@ export default function CircleView() {
       </div>
 
       <div className="tabs">
-        <button className={activeTab === 'all' ? 'active' : ''} onClick={() => setActiveTab('all')}>All</button>
-        <button className={activeTab === 'have' ? 'active' : ''} onClick={() => setActiveTab('have')}>Offers</button>
-        <button className={activeTab === 'need' ? 'active' : ''} onClick={() => setActiveTab('need')}>Needs</button>
-        <button className={activeTab === 'members' ? 'active' : ''} onClick={() => setActiveTab('members')}>Members ({members.length})</button>
+        {[['all', 'All'], ['have', 'Offers'], ['need', 'Needs'], ['members', `Members (${members.length})`]].map(([key, label]) => (
+          <button key={key} className={activeTab === key ? 'active' : ''} aria-pressed={activeTab === key} onClick={() => setActiveTab(key)}>
+            {label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'members' ? (

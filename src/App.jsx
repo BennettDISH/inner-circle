@@ -17,16 +17,24 @@ function Nav() {
   const location = useLocation();
   if (!user) return null;
 
-  const isActive = (path) => location.pathname === path ? 'nav__link nav__link--active' : 'nav__link';
+  // The current page's link is marked for screen readers as well as by colour.
+  const navLink = (path, label) => {
+    const here = location.pathname === path;
+    return (
+      <Link to={path} className={here ? 'nav__link nav__link--active' : 'nav__link'} aria-current={here ? 'page' : undefined}>
+        {label}
+      </Link>
+    );
+  };
 
   return (
     <nav className="nav">
       <Link to="/" className="nav__logo">inner circle</Link>
       <div className="nav__links">
-        <Link to="/" className={isActive('/')}>Circles</Link>
-        <Link to="/my-listings" className={isActive('/my-listings')}>My Listings</Link>
-        <Link to="/requests" className={isActive('/requests')}>Requests</Link>
-        {user.is_admin && <Link to="/admin" className={isActive('/admin')}>Admin</Link>}
+        {navLink('/', 'Circles')}
+        {navLink('/my-listings', 'My Listings')}
+        {navLink('/requests', 'Requests')}
+        {user.is_admin && navLink('/admin', 'Admin')}
         <button onClick={logout} className="btn btn--secondary" style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
           Sign Out
         </button>
@@ -39,18 +47,20 @@ export default function App() {
   return (
     <div className="app">
       <Nav />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/circles/create" element={<ProtectedRoute><CreateCircle /></ProtectedRoute>} />
-        <Route path="/circles/:id" element={<ProtectedRoute><CircleView /></ProtectedRoute>} />
-        <Route path="/circles/:id/listings/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
-        <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
-        <Route path="/requests" element={<ProtectedRoute><RequestsInbox /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-      </Routes>
+      <main className="app__main">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/circles/create" element={<ProtectedRoute><CreateCircle /></ProtectedRoute>} />
+          <Route path="/circles/:id" element={<ProtectedRoute><CircleView /></ProtectedRoute>} />
+          <Route path="/circles/:id/listings/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
+          <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
+          <Route path="/requests" element={<ProtectedRoute><RequestsInbox /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        </Routes>
+      </main>
     </div>
   );
 }

@@ -23,11 +23,11 @@ export default function Dashboard() {
         <Link to="/circles/create" className="btn btn--primary">Create New Circle</Link>
       </div>
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error" role="alert">{error}</div>}
 
       {circles.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state__icon">⭕</div>
+          <div className="empty-state__icon" aria-hidden="true">⭕</div>
           <p className="empty-state__text">You haven't joined any circles yet.</p>
         </div>
       ) : (
@@ -57,7 +57,16 @@ export default function Dashboard() {
               .catch(err => alert(err.message));
           }}>
             <div className="form-group">
-              <input name="code" placeholder="ENTER-CODE" style={{ textAlign: 'center', letterSpacing: '2px' }} required />
+              <input
+                name="code"
+                aria-label="Join code"
+                placeholder="ENTER-CODE"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                style={{ textAlign: 'center', letterSpacing: '2px' }}
+                required
+              />
             </div>
             <button type="submit" className="btn btn--secondary btn--full">Join Circle</button>
           </form>

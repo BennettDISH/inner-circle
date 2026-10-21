@@ -68,7 +68,7 @@ export default function Login() {
         )}
 
         <form onSubmit={handleLocalLogin}>
-          {error && <div className="error-message">{error}</div>}
+          {error && <div className="error-message" role="alert">{error}</div>}
           <div className="form-group">
             <label htmlFor="login-email">Email</label>
             <input 

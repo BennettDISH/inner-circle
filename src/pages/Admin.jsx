@@ -128,7 +128,7 @@ export default function Admin() {
 
       <div className="tabs">
         {Object.entries(TABS).map(([key, t]) => (
-          <button key={key} className={tab === key ? 'active' : ''} onClick={() => show(key)}>{t.label}</button>
+          <button key={key} className={tab === key ? 'active' : ''} aria-pressed={tab === key} onClick={() => show(key)}>{t.label}</button>
         ))}
       </div>
 
@@ -149,7 +149,7 @@ export default function Admin() {
         )}
       </form>
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error" role="alert">{error}</div>}
 
       {!data ? (
         !error && <div className="loading">Loading...</div>

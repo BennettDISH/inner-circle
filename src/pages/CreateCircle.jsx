@@ -31,7 +31,7 @@ export default function CreateCircle() {
       </p>
 
       <form onSubmit={handleSubmit} className="card">
-        {error && <div className="alert alert--error">{error}</div>}
+        {error && <div className="alert alert--error" role="alert">{error}</div>}
         
         <div className="form-group">
           <label htmlFor="circle-name">Circle Name</label>

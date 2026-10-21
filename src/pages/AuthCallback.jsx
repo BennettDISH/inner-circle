@@ -49,7 +49,7 @@ export default function AuthCallback() {
       <div className="auth-page">
         <div className="auth-card">
           <h2>Authentication Error</h2>
-          <p className="error-message">{error}</p>
+          <p className="error-message" role="alert">{error}</p>
           <button className="btn btn--primary" onClick={() => navigate('/login')}>Back to Login</button>
         </div>
       </div>

@@ -41,7 +41,7 @@ export default function Register() {
         <p>Register to start sharing with your trusted network.</p>
 
         <form onSubmit={handleSubmit}>
-          {error && <div className="error-message">{error}</div>}
+          {error && <div className="error-message" role="alert">{error}</div>}
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="register-first-name">First Name</label>

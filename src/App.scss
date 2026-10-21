@@ -36,12 +36,21 @@ a {
   background: $bg-secondary;
   border-bottom: 1px solid $border;
 
+  // On a phone the links go under the logo instead of squeezing it (and themselves) onto
+  // two lines each.
+  @media (max-width: $mobile) {
+    flex-wrap: wrap;
+    gap: $space-xs $space-md;
+    padding: $space-sm $space-md;
+  }
+
   &__logo {
     font-size: 1.2rem;
     font-weight: 700;
     color: $accent-light;
     text-decoration: none;
     letter-spacing: -0.5px;
+    white-space: nowrap;
     &:hover { text-decoration: none; color: $accent; }
   }
 
@@ -49,14 +58,30 @@ a {
     display: flex;
     gap: $space-md;
     align-items: center;
+
+    @media (max-width: $mobile) {
+      flex-wrap: wrap;
+      gap: 0 $space-md;
+    }
   }
 
   &__link {
     color: $text-secondary;
     font-size: 0.9rem;
+    white-space: nowrap;
     &:hover { color: $text-primary; text-decoration: none; }
     &--active { color: $accent-light; }
+
+    // a taller tap target
+    @media (max-width: $mobile) { padding: $space-sm 0; }
   }
+}
+
+// Holds the routed page; .page and .auth-page fill it as they filled .app before.
+.app__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .page {
@@ -85,6 +110,13 @@ a {
   margin-bottom: $space-lg;
   flex-wrap: wrap;
   gap: $space-md;
+
+  // The circle's join code and buttons wrap on a phone instead of running past the edge.
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-md;
+  }
 }
 
 // Cards
@@ -145,6 +177,9 @@ a {
     font-family: $font-body;
     font-size: 0.95rem;
     transition: border-color 0.2s;
+
+    // iPhone Safari zooms the page into any field under 16px when it gets focus.
+    @media (max-width: $mobile) { font-size: 1rem; }
 
     &:focus {
       outline: none;
@@ -250,8 +285,14 @@ a {
   gap: $space-xs;
   border-bottom: 1px solid $border;
   margin-bottom: $space-lg;
+  // More tabs than a phone is wide (five on the admin page) scroll in place, not the page.
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 
   button {
+    flex-shrink: 0;
+    white-space: nowrap;
     background: transparent;
     border: none;
     color: $text-secondary;
@@ -263,6 +304,8 @@ a {
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
 
+    @media (max-width: $mobile) { padding: $space-sm $space-sm; }
+
     &:hover { color: $text-primary; }
     &.active {
       color: $accent-light;
@@ -271,7 +314,7 @@ a {
   }
 }
 
-// Join code display
+// Join code display (a button: it copies the code)
 .join-code {
   display: inline-block;
   background: $bg-primary;
@@ -279,6 +322,7 @@ a {
   border-radius: $radius-sm;
   font-family: $font-mono;
   font-size: 1.1rem;
+  line-height: inherit;
   letter-spacing: 2px;
   color: $accent-light;
   border: 1px dashed $border;
@@ -489,6 +533,7 @@ a {
     color: $text-primary;
     font-family: $font-body;
     font-size: 0.95rem;
+    @media (max-width: $mobile) { font-size: 1rem; } // no iPhone focus zoom, as in .form-group
 
     &:focus { outline: none; border-color: $accent; box-shadow: 0 0 0 3px $accent-glow; }
     &::placeholder { color: $text-secondary; }

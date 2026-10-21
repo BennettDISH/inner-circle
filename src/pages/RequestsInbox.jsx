@@ -38,15 +38,15 @@ export default function RequestsInbox() {
       <h1 className="page-title">Requests</h1>
 
       <div className="tabs">
-        <button className={activeTab === 'incoming' ? 'active' : ''} onClick={() => setActiveTab('incoming')}>
+        <button className={activeTab === 'incoming' ? 'active' : ''} aria-pressed={activeTab === 'incoming'} onClick={() => setActiveTab('incoming')}>
           Incoming ({incoming.length})
         </button>
-        <button className={activeTab === 'outgoing' ? 'active' : ''} onClick={() => setActiveTab('outgoing')}>
+        <button className={activeTab === 'outgoing' ? 'active' : ''} aria-pressed={activeTab === 'outgoing'} onClick={() => setActiveTab('outgoing')}>
           Outgoing ({outgoing.length})
         </button>
       </div>
 
-      {error && <div className="alert alert--error">{error}</div>}
+      {error && <div className="alert alert--error" role="alert">{error}</div>}
 
       {currentRequests.length === 0 ? (
         <div className="empty-state">
