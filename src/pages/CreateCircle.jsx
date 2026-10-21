@@ -34,8 +34,9 @@ export default function CreateCircle() {
         {error && <div className="alert alert--error">{error}</div>}
         
         <div className="form-group">
-          <label>Circle Name</label>
-          <input 
+          <label htmlFor="circle-name">Circle Name</label>
+          <input
+            id="circle-name"
             value={name} 
             onChange={e => setName(e.target.value)} 
             placeholder="e.g. The Inner Circle, Smith Family, etc."
@@ -44,8 +45,9 @@ export default function CreateCircle() {
         </div>
 
         <div className="form-group">
-          <label>Description</label>
-          <textarea 
+          <label htmlFor="circle-description">Description</label>
+          <textarea
+            id="circle-description"
             value={description} 
             onChange={e => setDescription(e.target.value)} 
             placeholder="What is this circle for? (Optional)"

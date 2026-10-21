@@ -42,8 +42,9 @@ export default function CreateListing() {
         {error && <div className="alert alert--error">{error}</div>}
 
         <div className="form-group">
-          <label>I have / I need</label>
-          <select 
+          <label htmlFor="listing-kind">I have / I need</label>
+          <select
+            id="listing-kind"
             value={formData.kind} 
             onChange={e => setFormData({ ...formData, kind: e.target.value })}
           >
@@ -53,8 +54,9 @@ export default function CreateListing() {
         </div>
 
         <div className="form-group">
-          <label>Category</label>
-          <select 
+          <label htmlFor="listing-category">Category</label>
+          <select
+            id="listing-category"
             value={formData.category} 
             onChange={e => setFormData({ ...formData, category: e.target.value })}
           >
@@ -67,8 +69,9 @@ export default function CreateListing() {
         </div>
 
         <div className="form-group">
-          <label>Title</label>
-          <input 
+          <label htmlFor="listing-title">Title</label>
+          <input
+            id="listing-title"
             value={formData.title} 
             onChange={e => setFormData({ ...formData, title: e.target.value })}
             placeholder="e.g. Extra garden tools, Help with moving, etc."
@@ -77,8 +80,9 @@ export default function CreateListing() {
         </div>
 
         <div className="form-group">
-          <label>Description</label>
-          <textarea 
+          <label htmlFor="listing-description">Description</label>
+          <textarea
+            id="listing-description"
             value={formData.description} 
             onChange={e => setFormData({ ...formData, description: e.target.value })}
             placeholder="Provide some details..."
@@ -86,8 +90,9 @@ export default function CreateListing() {
         </div>
 
         <div className="form-group">
-          <label>Availability / Terms</label>
-          <input 
+          <label htmlFor="listing-availability">Availability / Terms</label>
+          <input
+            id="listing-availability"
             value={formData.availability} 
             onChange={e => setFormData({ ...formData, availability: e.target.value })}
             placeholder="e.g. Free, Trade for coffee, Available weekends"
@@ -95,8 +100,9 @@ export default function CreateListing() {
         </div>
 
         <div className="form-group">
-          <label>Tags (comma-separated)</label>
+          <label htmlFor="listing-tags">Tags (comma-separated)</label>
           <input
+            id="listing-tags"
             value={formData.tags}
             onChange={e => setFormData({ ...formData, tags: e.target.value })}
             placeholder="e.g. garden, tools, weekend"
