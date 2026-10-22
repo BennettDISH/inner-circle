@@ -23,7 +23,25 @@ const PORT = process.env.PORT || 3000;
 // which the client writes itself, and the join-code and guest limits key on req.ip.
 app.set('trust proxy', 1);
 
-app.use(helmet({ contentSecurityPolicy: false }));
+// The session token sits in localStorage, so the page may run only its own scripts and the
+// bug-tracker widget's (index.html), and talk only to itself and the widget's server. On top of
+// helmet's defaults (default-src, script-src 'self', object-src 'none', script-src-attr 'none',
+// frame-ancestors 'self'): the widget's script and reports, its <style> (unsafe-inline, styles
+// only) and its screenshot preview (data: and blob: images), and the Google Fonts App.scss
+// imports. No upgrade-insecure-requests: production is https already, and a local run is http.
+const BUG_TRACKER = 'https://bug-tracker-production-4ccb.up.railway.app';
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      'script-src': ["'self'", BUG_TRACKER],
+      'connect-src': ["'self'", BUG_TRACKER],
+      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      'font-src': ["'self'", 'https://fonts.gstatic.com'],
+      'img-src': ["'self'", 'data:', 'blob:'],
+      'upgrade-insecure-requests': null,
+    },
+  },
+}));
 app.use(cors());
 app.use(morgan('tiny'));
 app.use(express.json());

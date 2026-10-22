@@ -10,6 +10,7 @@ Open ideas, planned work and known issues. One line each.
 - Requests can be sent on inactive listings.
 
 ## Done
+- Content-Security-Policy on (script-src self and the bug-tracker widget; no inline script), since the session token sits in localStorage (2026-10-22).
 - 10 wrong join codes per 15 minutes per address and per account, 5 guest sign-ins an hour per address; `trust proxy` narrowed to Railway's one hop (2026-10-22).
 - Unknown `/api` paths answer a JSON 404; sign-in upserts the profile in one statement; a listing edit can't blank the title or send a non-boolean `active`; every foreign key column is indexed (2026-10-21).
 - Signed-in pages at phone width (nav, circle header, tabs, no iPhone focus zoom) and for keyboard and screen readers (join code button, main landmark, aria-current/aria-pressed, role="alert" errors) (2026-10-21).
