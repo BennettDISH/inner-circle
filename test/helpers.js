@@ -187,8 +187,8 @@ export async function startApp({ adminIds = '' } = {}) {
   }
 
   /** Send a request. `raw` sends a string body as-is (for malformed JSON). */
-  const request = async (method, url, { token, body, raw } = {}) => {
-    const headers = {};
+  const request = async (method, url, { token, body, raw, headers: extraHeaders } = {}) => {
+    const headers = { ...extraHeaders };
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body !== undefined || raw !== undefined) headers['Content-Type'] = 'application/json';
     const res = await fetch(base + url, {
@@ -202,7 +202,22 @@ export async function startApp({ adminIds = '' } = {}) {
     return { status: res.status, body: data };
   };
 
-  const signedIn = ({ token, user }) => ({ token, user, as: (method, url, body) => request(method, url, { token, body }) });
+  // Each guest is its own client: it signs in and sends every request from its own address, in
+  // X-Forwarded-For the way Railway's edge forwards it, so the per-address limits (5 guest
+  // sign-ins an hour) don't run out across a test file.
+  let nextClient = 1;
+  const clientAddress = () => {
+    const n = nextClient++;
+    return `198.18.${n >> 8}.${n & 255}`;
+  };
+  const from = (address) => ({ 'X-Forwarded-For': address });
+
+  const signedIn = ({ token, user }, address) => ({
+    token,
+    user,
+    address,
+    as: (method, url, body, headers = from(address)) => request(method, url, { token, body, headers }),
+  });
 
   return {
     base,
@@ -211,12 +226,13 @@ export async function startApp({ adminIds = '' } = {}) {
     request,
     alive,
     log: () => log,
-    /** Sign in through the real guest flow; returns { token, user, as } where `as` is a
-     *  request function bound to this user's token. */
-    async guest() {
-      const res = await request('POST', '/api/auth/guest');
+    /** Sign in through the real guest flow from `address` (a fresh one by default); returns
+     *  { token, user, address, as } where `as` is a request function bound to this user's token
+     *  and address (a fourth argument replaces the headers). */
+    async guest(address = clientAddress()) {
+      const res = await request('POST', '/api/auth/guest', { headers: from(address) });
       if (res.status !== 200) throw new Error(`guest sign-in failed: ${res.status} ${JSON.stringify(res.body)}`);
-      return signedIn(res.body);
+      return signedIn(res.body, address);
     },
     async stop() {
       if (alive()) {

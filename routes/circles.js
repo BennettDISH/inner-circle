@@ -2,8 +2,15 @@ import { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
+import { createLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
+
+// Join codes are 6 base-36 characters, so guessing has to be slow: after 10 wrong codes in 15
+// minutes from one address, or from one account, joining answers 429 until the window ends.
+// Right codes aren't counted.
+const JOIN_MAX_WRONG = 10;
+const wrongJoins = createLimiter({ max: JOIN_MAX_WRONG, windowMs: 15 * 60 * 1000 });
 
 function generateJoinCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -54,11 +61,18 @@ router.post('/', wrap(async (req, res) => {
 
 router.post('/join', wrap(async (req, res) => {
   const { join_code } = req.body;
+  const keys = [`ip:${req.ip}`, `user:${req.user.central_user_id}`];
+  if (keys.some((k) => wrongJoins.blocked(k))) {
+    return res.status(429).json({ error: 'Too many wrong codes. Wait 15 minutes and try again.' });
+  }
   const { rows: circles } = await pool.query(
     'SELECT * FROM circles WHERE join_code = $1',
     [String(join_code ?? '').toUpperCase()]
   );
-  if (!circles[0]) return res.status(404).json({ error: 'Circle not found' });
+  if (!circles[0]) {
+    keys.forEach((k) => wrongJoins.hit(k));
+    return res.status(404).json({ error: 'Circle not found' });
+  }
 
   try {
     await pool.query(

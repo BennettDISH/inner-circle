@@ -3,8 +3,13 @@ import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { centralRegister, centralLogin, centralGuest, exchangeCode, AUTH_SERVICE_URL, SSO_CLIENT_ID, SSO_ENABLED } from '../config/sso.js';
 import { authenticate, isAdmin } from '../middleware/auth.js';
+import { createLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
+
+// Each guest sign-in mints a new Waypoint account, so one address gets 5 an hour.
+const GUESTS_PER_HOUR = 5;
+const guestMints = createLimiter({ max: GUESTS_PER_HOUR, windowMs: 60 * 60 * 1000 });
 
 // The SPA route that renders AuthCallback and posts the code back to /sso-callback.
 const CALLBACK_PATH = '/auth/callback';
@@ -93,6 +98,10 @@ router.post('/sso-callback', async (req, res) => {
 // One-click guest: mint a central guest account and sign in as it — no redirect, no form.
 router.post('/guest', async (req, res) => {
   if (!SSO_ENABLED) return res.status(503).json({ error: 'Guest sign-in is not available' });
+  if (guestMints.blocked(req.ip)) {
+    return res.status(429).json({ error: 'Too many guest sign-ins from this network. Try again in an hour.' });
+  }
+  guestMints.hit(req.ip);
   try {
     const profile = await findOrCreateProfile(await centralGuest());
     res.json(signedIn(profile));

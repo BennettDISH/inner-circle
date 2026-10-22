@@ -5,11 +5,12 @@ Open ideas, planned work and known issues. One line each.
 ## Open
 - No tests for the client (the API has a suite in `test/`).
 - Over-long names and titles (VARCHAR limits) reach Postgres: circle create answers 400 with the raw Postgres message, listing create answers 500.
-- Join codes come from `Math.random` and there is no rate limit on `POST /api/circles/join`.
+- Join codes come from `Math.random` (the wrong-code limit keeps guessing slow).
 - A circle whose last admin leaves has no admin left, and there is no way to remove a member or change a join code.
 - Requests can be sent on inactive listings.
 
 ## Done
+- 10 wrong join codes per 15 minutes per address and per account, 5 guest sign-ins an hour per address; `trust proxy` narrowed to Railway's one hop (2026-10-22).
 - Unknown `/api` paths answer a JSON 404; sign-in upserts the profile in one statement; a listing edit can't blank the title or send a non-boolean `active`; every foreign key column is indexed (2026-10-21).
 - Signed-in pages at phone width (nav, circle header, tabs, no iPhone focus zoom) and for keyboard and screen readers (join code button, main landmark, aria-current/aria-pressed, role="alert" errors) (2026-10-21).
 - Form labels tied to their fields on every page (2026-10-19, 2026-10-21).

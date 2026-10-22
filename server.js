@@ -18,8 +18,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Trust the proxy (Railway) so req.protocol reflects the original https scheme when
-// building the SSO redirect_uri.
-app.set('trust proxy', true);
+// building the SSO redirect_uri. Exactly one hop: Railway's edge appends the address it saw to
+// X-Forwarded-For, so req.ip is that last entry. `true` would make req.ip the leftmost entry,
+// which the client writes itself, and the join-code and guest limits key on req.ip.
+app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
