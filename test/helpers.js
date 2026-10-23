@@ -168,7 +168,10 @@ export async function startApp({ adminIds = '', distDir = '', fakeR2 = false, ph
   const r2Dir = fakeR2 ? fs.mkdtempSync(path.join(os.tmpdir(), 'inner-circle-r2-')) : null;
   // Every variable the server reads is pinned here. dotenv never overrides a variable that is
   // already set, so a local .env can't leak into a test run.
-  const child = spawn(process.execPath, [...(fakeR2 ? ['--import', './test/fakeR2.js'] : []), 'server.js'], {
+  // The app's pool gets one connection (test/onePgConnection.js): PGlite is one session, and
+  // requests that arrive together can otherwise be handed each other's replies.
+  const preload = ['./test/onePgConnection.js', ...(fakeR2 ? ['./test/fakeR2.js'] : [])].flatMap((file) => ['--import', file]);
+  const child = spawn(process.execPath, [...preload, 'server.js'], {
     cwd: root,
     env: {
       PATH: process.env.PATH,
