@@ -2,6 +2,7 @@ import { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
+import { textError } from '../services/circles.js';
 
 const router = Router();
 
@@ -45,6 +46,9 @@ router.post('/', wrap(async (req, res) => {
   const { listing_id, message } = req.body;
   const listingId = toId(listing_id);
   if (listingId === null) return res.status(400).json({ error: 'Invalid listing id' });
+  // Postgres cannot store a NUL character; the other text fields are checked the same way.
+  const invalid = textError(message, 'Message');
+  if (invalid) return res.status(400).json({ error: invalid });
 
   const client = await pool.connect();
   let outcome;

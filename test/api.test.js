@@ -502,6 +502,19 @@ describe('requests', () => {
     assert.equal(made.body.request.message, 'Can I borrow it Saturday?');
   });
 
+  it('a message Postgres cannot store is a 400, not a 500, and makes no request', async () => {
+    const { owner, member, listing } = await setup();
+    for (const [message, error] of [
+      ['Bad\u0000text', "Message has a character that can't be saved"],
+      [{ not: 'text' }, 'Message must be text'],
+    ]) {
+      const res = await member.as('POST', '/api/requests', { listing_id: listing.id, message });
+      assert.equal(res.status, 400, JSON.stringify(res.body));
+      assert.equal(res.body.error, error);
+    }
+    assert.deepEqual((await owner.as('GET', '/api/requests')).body.requests, []);
+  });
+
   it('incoming and outgoing lists', async () => {
     const { owner, member, listing } = await setup();
     const id = (await member.as('POST', '/api/requests', { listing_id: listing.id })).body.request.id;
