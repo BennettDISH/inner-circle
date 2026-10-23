@@ -2,6 +2,7 @@ import { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
+import { nameError, textError } from '../services/circles.js';
 
 const router = Router();
 
@@ -9,7 +10,11 @@ const VALID_KINDS = ['have', 'need'];
 const VALID_CATEGORIES = ['item', 'time', 'space', 'skill', 'service', 'event', 'other'];
 
 // tags is a TEXT[] column; anything but a list of strings makes Postgres reject the query.
-const validTags = (tags) => tags == null || (Array.isArray(tags) && tags.every((t) => typeof t === 'string'));
+const validTags = (tags) => tags == null || (Array.isArray(tags) && tags.every((t) => typeof t === 'string' && !t.includes('\0')));
+
+// The text fields beyond the title: Postgres rejects a NUL character in any of them.
+const textFieldError = ({ description, availability }) =>
+  textError(description, 'Description') || textError(availability, 'Availability');
 
 router.use(authenticate);
 
@@ -56,6 +61,8 @@ router.post('/', wrap(async (req, res) => {
   if (!VALID_KINDS.includes(kind)) return res.status(400).json({ error: 'Invalid kind' });
   if (category && !VALID_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Invalid category' });
   if (!validTags(tags)) return res.status(400).json({ error: 'Tags must be a list of strings' });
+  const invalid = nameError(title, 'Title') || textFieldError(req.body);
+  if (invalid) return res.status(400).json({ error: invalid });
   if (!(await memberOf(req.user.central_user_id, circleId))) {
     return res.status(403).json({ error: 'Not a member' });
   }
@@ -85,6 +92,8 @@ router.put('/:id', wrap(async (req, res) => {
   // anything Postgres can't read as one made the update fail with a 500.
   if (title != null && (typeof title !== 'string' || !title.trim())) return res.status(400).json({ error: 'Title required' });
   if (active != null && typeof active !== 'boolean') return res.status(400).json({ error: 'active must be true or false' });
+  const invalid = (title != null && nameError(title, 'Title')) || textFieldError(req.body);
+  if (invalid) return res.status(400).json({ error: invalid });
   const { rows } = await pool.query(
     `UPDATE listings
      SET kind = COALESCE($1, kind),

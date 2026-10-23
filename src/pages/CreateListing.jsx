@@ -72,7 +72,8 @@ export default function CreateListing() {
           <label htmlFor="listing-title">Title</label>
           <input
             id="listing-title"
-            value={formData.title} 
+            maxLength={255}
+            value={formData.title}
             onChange={e => setFormData({ ...formData, title: e.target.value })}
             placeholder="e.g. Extra garden tools, Help with moving, etc."
             required 

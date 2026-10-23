@@ -179,11 +179,41 @@ describe('circles', () => {
     assert.equal(res.body.error, 'Name required');
   });
 
+  it('a name or description Postgres could not store is a plain 400, and nothing is made', async () => {
+    const g = await app.guest();
+    const count = async () => (await app.db.query('SELECT COUNT(*)::int AS n FROM circles')).rows[0].n;
+    const start = await count();
+    const cases = [
+      [{ name: 'x'.repeat(256) }, 'Name must be 255 characters or fewer'],
+      [{ name: '😀'.repeat(256) }, 'Name must be 255 characters or fewer'],
+      [{ name: 'Bad\u0000name' }, "Name has a character that can't be saved"],
+      [{ name: 12 }, 'Name must be text'],
+      [{ name: { $ne: '' } }, 'Name must be text'],
+      [{ name: 'Fine', description: 'Bad\u0000text' }, "Description has a character that can't be saved"],
+      [{ name: 'Fine', description: ['x'] }, 'Description must be text'],
+    ];
+    for (const [body, error] of cases) {
+      const res = await g.as('POST', '/api/circles', body);
+      assert.equal(res.status, 400, JSON.stringify(body).slice(0, 80));
+      assert.deepEqual(res.body, { error });
+    }
+    assert.equal(await count(), start);
+  });
+
+  it('a name of exactly 255 characters is fine, counted in characters rather than bytes', async () => {
+    const g = await app.guest();
+    for (const name of ['x'.repeat(255), '😀'.repeat(255)]) {
+      const res = await g.as('POST', '/api/circles', { name });
+      assert.equal(res.status, 200, name.slice(0, 5));
+      assert.equal(res.body.circle.name, name);
+    }
+  });
+
   it('the creator becomes the admin and sees the circle in their list', async () => {
     const { owner, circle } = await newCircle('Cousins');
     assert.equal(circle.name, 'Cousins');
     assert.equal(circle.created_by, owner.user.central_user_id);
-    assert.match(circle.join_code, /^[0-9A-Z]{1,6}$/);
+    assert.match(circle.join_code, /^[0-9A-Z]{6}$/);
 
     const list = await owner.as('GET', '/api/circles');
     assert.equal(list.status, 200);
@@ -287,6 +317,41 @@ describe('listings', () => {
     const blocked = await outsider.as('POST', '/api/listings', { ...drill, circle_id: circle.id });
     assert.equal(blocked.status, 403);
     assert.deepEqual((await owner.as('GET', '/api/listings/mine')).body.listings, []);
+  });
+
+  it('a title or text Postgres could not store is a plain 400 on create and edit', async () => {
+    const { owner, circle } = await newCircle();
+    const id = (await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id })).body.listing.id;
+    const cases = [
+      [{ title: 'x'.repeat(256) }, 'Title must be 255 characters or fewer'],
+      [{ title: '😀'.repeat(256) }, 'Title must be 255 characters or fewer'],
+      [{ title: 'Bad\u0000title' }, "Title has a character that can't be saved"],
+      [{ description: 'Bad\u0000text' }, "Description has a character that can't be saved"],
+      [{ availability: ['weekends'] }, 'Availability must be text'],
+      [{ tags: ['ok', 'bad\u0000tag'] }, 'Tags must be a list of strings'],
+    ];
+    for (const [change, error] of cases) {
+      const created = await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id, ...change });
+      assert.equal(created.status, 400, JSON.stringify(change).slice(0, 80));
+      assert.deepEqual(created.body, { error });
+      const edited = await owner.as('PUT', `/api/listings/${id}`, change);
+      assert.equal(edited.status, 400, JSON.stringify(change).slice(0, 80));
+      assert.deepEqual(edited.body, { error });
+    }
+    // The create above that was refused made nothing, and the edits changed nothing.
+    const mine = (await owner.as('GET', '/api/listings/mine')).body.listings;
+    assert.deepEqual(mine.map((l) => [l.id, l.title]), [[id, 'Cordless drill']]);
+  });
+
+  it('a title of exactly 255 characters is fine, counted in characters rather than bytes', async () => {
+    const { owner, circle } = await newCircle();
+    for (const title of ['x'.repeat(255), '😀'.repeat(255)]) {
+      const created = await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id, title });
+      assert.equal(created.status, 200, title.slice(0, 5));
+      assert.equal(created.body.listing.title, title);
+      const edited = await owner.as('PUT', `/api/listings/${created.body.listing.id}`, { title });
+      assert.equal(edited.status, 200);
+    }
   });
 
   it('members create and see listings; defaults fill in; kind filters', async () => {
@@ -548,10 +613,15 @@ describe('bad input does not take the server down', () => {
     assert.deepEqual(res.body, { error: 'Bad request' });
   });
 
+  /** Run `fn` with a table out of the way (renamed), so queries on it fail inside Postgres. */
+  async function withTableMissing(table, fn) {
+    await app.db.query(`ALTER TABLE ${table} RENAME TO ${table}_away`);
+    try { return await fn(); } finally { await app.db.query(`ALTER TABLE ${table}_away RENAME TO ${table}`); }
+  }
+
   it('a query Postgres rejects answers 500 without details, and the server keeps serving', async () => {
     const { owner, circle } = await newCircle();
-    // title is VARCHAR(255) and nothing checks the length before the insert.
-    const res = await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id, title: 'x'.repeat(300) });
+    const res = await withTableMissing('listings', () => owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id }));
     assert.equal(res.status, 500);
     assert.deepEqual(res.body, { error: 'Something went wrong' });
 
@@ -561,12 +631,14 @@ describe('bad input does not take the server down', () => {
     assert.equal(ok.status, 200);
   });
 
-  it('a failed circle insert rolls back and leaves nothing behind', async () => {
+  it('a failed circle insert rolls back, answers 500 without details and leaves nothing behind', async () => {
     const g = await app.guest();
     const count = async () => (await app.db.query('SELECT COUNT(*)::int AS n FROM circles')).rows[0].n;
     const start = await count();
-    const res = await g.as('POST', '/api/circles', { name: 'x'.repeat(300) });
-    assert.equal(res.status, 400);
+    // The circle goes in first and the admin membership second; the second fails.
+    const res = await withTableMissing('circle_members', () => g.as('POST', '/api/circles', { name: 'Half made' }));
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.body, { error: 'Something went wrong' });
     assert.equal(await count(), start);
 
     // The pooled connection that held the failed transaction still works.

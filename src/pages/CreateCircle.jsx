@@ -37,7 +37,8 @@ export default function CreateCircle() {
           <label htmlFor="circle-name">Circle Name</label>
           <input
             id="circle-name"
-            value={name} 
+            maxLength={255}
+            value={name}
             onChange={e => setName(e.target.value)} 
             placeholder="e.g. The Inner Circle, Smith Family, etc."
             required 

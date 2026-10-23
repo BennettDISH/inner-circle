@@ -3,6 +3,7 @@ import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
 import { createLimiter } from '../middleware/rateLimit.js';
+import { insertCircle, nameError, textError } from '../services/circles.js';
 
 const router = Router();
 
@@ -11,10 +12,6 @@ const router = Router();
 // Right codes aren't counted.
 const JOIN_MAX_WRONG = 10;
 const wrongJoins = createLimiter({ max: JOIN_MAX_WRONG, windowMs: 15 * 60 * 1000 });
-
-function generateJoinCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
 
 router.use(authenticate);
 
@@ -35,25 +32,29 @@ router.get('/', wrap(async (req, res) => {
 router.post('/', wrap(async (req, res) => {
   const { name, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Name required' });
+  const invalid = nameError(name, 'Name') || textError(description, 'Description');
+  if (invalid) return res.status(400).json({ error: invalid });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query(
-      `INSERT INTO circles (name, description, join_code, created_by)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name, description || '', generateJoinCode(), req.user.central_user_id]
-    );
+    const circle = await insertCircle(client, {
+      name,
+      description: description || '',
+      createdBy: req.user.central_user_id,
+    });
     await client.query(
       `INSERT INTO circle_members (circle_id, central_user_id, role)
        VALUES ($1, $2, 'admin')`,
-      [rows[0].id, req.user.central_user_id]
+      [circle.id, req.user.central_user_id]
     );
     await client.query('COMMIT');
-    res.json({ circle: rows[0] });
+    res.json({ circle });
   } catch (err) {
+    // Whatever failed is the server's problem, not the caller's: the error handler logs it and
+    // answers 500 without Postgres's wording.
     await client.query('ROLLBACK');
-    res.status(400).json({ error: err.message });
+    throw err;
   } finally {
     client.release();
   }
@@ -74,16 +75,12 @@ router.post('/join', wrap(async (req, res) => {
     return res.status(404).json({ error: 'Circle not found' });
   }
 
-  try {
-    await pool.query(
-      `INSERT INTO circle_members (circle_id, central_user_id) VALUES ($1, $2)
-       ON CONFLICT DO NOTHING`,
-      [circles[0].id, req.user.central_user_id]
-    );
-    res.json({ circle: circles[0] });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+  await pool.query(
+    `INSERT INTO circle_members (circle_id, central_user_id) VALUES ($1, $2)
+     ON CONFLICT DO NOTHING`,
+    [circles[0].id, req.user.central_user_id]
+  );
+  res.json({ circle: circles[0] });
 }));
 
 router.get('/:id', wrap(async (req, res) => {
