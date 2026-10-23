@@ -8,6 +8,8 @@ import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 let dbServer, db, sweepGuests, useClientForTests;
 const bucket = new Map(); // key -> bytes: what the fake R2 holds
 let failDelete = false;
+// Waypoint's word is not what these tests are about (guestSweep.test.js has it): every idle guest may go
+const everyoneMayGo = async (ids) => ({ ok: true, clear: ids.map(String), claimed: [], unknown: [] });
 
 before(async () => {
   const pglite = await PGlite.create();
@@ -76,7 +78,7 @@ test('an idle guest\'s circle goes with its photo objects; a circle that stays k
   const shared = await circleWithPhotos(hosted, 2);
   await q(`INSERT INTO circle_members (circle_id, central_user_id) VALUES ($1, $2)`, [shared.circle.id, real.central_user_id]);
 
-  const r = await sweepGuests({ db, days: 30 });
+  const r = await sweepGuests({ db, days: 30, check: everyoneMayGo });
   assert.equal(r.made, 1);
   assert.equal((await q('SELECT 1 FROM circles WHERE id = $1', [gone.circle.id])).length, 0);
   assert.equal((await q('SELECT 1 FROM listing_photos WHERE object_key = ANY($1)', [gone.keys])).length, 0);
@@ -89,7 +91,7 @@ test('a bucket that will not delete does not stop the sweep', async () => {
   const idle = await profile({ guest: true, days: 41 });
   const gone = await circleWithPhotos(idle, 1);
   failDelete = true;
-  const r = await sweepGuests({ db, days: 30 });
+  const r = await sweepGuests({ db, days: 30, check: everyoneMayGo });
   failDelete = false;
   assert.equal(r.made, 1);
   assert.equal((await q('SELECT 1 FROM circles WHERE id = $1', [gone.circle.id])).length, 0);

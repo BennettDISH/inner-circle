@@ -66,7 +66,7 @@ Names only; `.env.example` has comments.
 - `config/sso.js`: server-to-server calls to the auth service.
 - `middleware/auth.js`: `authenticate` (Bearer JWT, profile re-read from the DB).
 - `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`, `admin.js` (site admin lists, GET only).
-- `services/guestSweep.js`: the daily removal of idle old guest accounts and the circles only guests had a part in.
+- `services/guestSweep.js`: the daily removal of idle old guest accounts and the circles only guests had a part in, after asking Waypoint (`services/guestCheck.js`) which of them may go; nobody is removed while Waypoint does not answer.
 - `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Admin, Login, Register, AuthCallback.
 
 ## Notes

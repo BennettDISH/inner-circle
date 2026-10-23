@@ -31,10 +31,19 @@
 // deadlock) is tried again one at a time; the one that cannot go is left for the next run and
 // said in the log, and the rest go.
 //
+// Who may go is Waypoint's word, not only this copy's: the idle guests are asked about first
+// (guestCheck.js). One that claimed its account there stays (this copy still looks like a guest until
+// its next sign-in, and is asked about again each run); one Waypoint does not link to this app stays
+// and is logged; only an unclaimed guest, or an id no Waypoint account has any more, is taken. If
+// Waypoint cannot answer (no answer, an error, not deployed yet) nobody is taken that run. The rest
+// of the sweep sees only the cleared guests as stale (guest_clear), so every hold below treats the
+// others as in use.
+//
 // It runs a minute after boot and then daily (server.js); GUEST_CLEANUP_ENABLED=false turns it
 // off. A failure is logged and never thrown: a background chore never takes the server down.
 import pool from '../config/db.js';
 import { photoKeysOfCircles, releasePhotos } from './photos.js';
+import { checkGuests } from './guestCheck.js';
 
 /** The accounts: the table, its own id, what makes one a guest and when it was last seen. */
 const USERS = 'profiles';
@@ -56,7 +65,9 @@ const DEPTH = 6; // keys in a chain from a row down to the last row that goes wi
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** `u` names an account row; $1 is the window in days. */
-const stale = (u) => `(${isGuest(u)} AND ${lastSeen(u)} < NOW() - ($1 || ' days')::interval)`;
+const idleGuest = (u) => `(${isGuest(u)} AND ${lastSeen(u)} < NOW() - ($1 || ' days')::interval)`;
+/** An idle guest Waypoint cleared (guest_clear: this connection's, filled for the run). */
+const stale = (u) => `(${idleGuest(u)} AND ${u}.${USER_ID}::text IN (SELECT uid FROM guest_clear))`;
 /** What the database says of the rows themselves: a key that refuses or a value that may not
  *  be emptied (class 23), a row changed under the piece or a deadlock (class 40), a trigger
  *  that raises (class P0). The piece cannot go; the sweep can go on. Anything else ends the run. */
@@ -206,7 +217,10 @@ async function each(what, ids, take) {
   return done;
 }
 
-export async function sweepGuests({ db = pool, days: asked = Number(process.env.GUEST_RETENTION_DAYS || 30), dryRun = false } = {}) {
+/** What Waypoint's answer kept apart, for the result: counts only when there is something. */
+const noted = (v) => ({ ...(v.claimed.length ? { claimed: v.claimed.length } : {}), ...(v.unknown.length ? { unknown: v.unknown.length } : {}) });
+
+export async function sweepGuests({ db = pool, days: asked = Number(process.env.GUEST_RETENTION_DAYS || 30), dryRun = false, check = checkGuests } = {}) {
   if (!Number.isFinite(asked) || asked < 1) throw new Error(`GUEST_RETENTION_DAYS must be a positive number, got ${asked}`);
   // never sooner than a session lasts: a guest whose token still works is still in use
   const window = String(Math.max(asked, SESSION_DAYS));
@@ -214,8 +228,16 @@ export async function sweepGuests({ db = pool, days: asked = Number(process.env.
   try {
     if (!(await client.query('SELECT pg_try_advisory_lock($1) AS ok', [LOCK])).rows[0].ok) return { skipped: 'another sweep is running' };
     try {
-      const { rows: idle } = await client.query(`SELECT u.${USER_ID} AS id FROM ${USERS} u WHERE ${stale('u')} ORDER BY ${lastSeen('u')}`, [window]);
+      const { rows: idle } = await client.query(`SELECT u.${USER_ID} AS id, u.central_user_id AS central FROM ${USERS} u WHERE ${idleGuest('u')} ORDER BY ${lastSeen('u')}`, [window]);
       if (!idle.length) return { stale: 0, made: 0, removed: 0, kept: 0 };
+      // Waypoint's word first: no answer, nobody goes
+      const verdict = await check(idle.map((u) => u.central));
+      if (!verdict.ok) return { stale: idle.length, made: 0, removed: 0, kept: idle.length, held: verdict.reason };
+      if (verdict.unknown.length) console.error(`Guest sweep: ${verdict.unknown.length} idle guest(s) left in place, Waypoint does not link them to this app: ${verdict.unknown.slice(0, 20).join(', ')}`);
+      const local = new Map(idle.map((u) => [String(u.central), String(u.id)]));
+      await client.query('CREATE TEMP TABLE IF NOT EXISTS guest_clear (uid text PRIMARY KEY)');
+      await client.query('TRUNCATE guest_clear');
+      if (verdict.clear.length) await client.query('INSERT INTO guest_clear (uid) SELECT unnest($1::text[])', [verdict.clear.map((c) => local.get(c))]);
       const p = plan((await client.query(KEYS)).rows, (await client.query(TABLES)).rows[0]);
 
       let made = 0;
@@ -239,7 +261,7 @@ export async function sweepGuests({ db = pool, days: asked = Number(process.env.
         };
         for (const ids of pieces(dead, AT_ONCE)) made += await each(root.table, ids, take);
       }
-      if (dryRun) return { stale: idle.length, made, removed: 0, kept: 0 };
+      if (dryRun) return { stale: idle.length, made, removed: 0, kept: 0, ...noted(verdict) };
 
       // Who is still named, now that what only guests made is gone
       let removed = 0;
@@ -247,8 +269,9 @@ export async function sweepGuests({ db = pool, days: asked = Number(process.env.
         async () => (await client.query(`SELECT u.${USER_ID} AS id FROM ${USERS} u WHERE u.${USER_ID} = ANY($2) AND ${p.unnamedGuest}`, [window, ids])).rows.map((u) => u.id),
         (going) => client.query(`DELETE FROM ${USERS} WHERE ${USER_ID} = ANY($1)`, [going]));
       for (const ids of pieces(idle.map((u) => u.id), GUESTS_AT_ONCE)) removed += await each('guest', ids, take);
-      return { stale: idle.length, made, removed, kept: idle.length - removed };
+      return { stale: idle.length, made, removed, kept: idle.length - removed, ...noted(verdict) };
     } finally {
+      await client.query('DROP TABLE IF EXISTS guest_clear').catch(() => {});
       await client.query('SELECT pg_advisory_unlock($1)', [LOCK]).catch(() => {});
     }
   } finally {
@@ -260,7 +283,9 @@ export async function sweepGuests({ db = pool, days: asked = Number(process.env.
 export async function runGuestSweep(options) {
   try {
     const r = await sweepGuests(options);
-    if (r.removed || r.made || r.kept) {
+    if (r.held) {
+      console.error(`Guest sweep paused, nobody removed (${r.stale} idle guest(s) waiting): ${r.held}. It runs again tomorrow.`);
+    } else if (r.removed || r.made || r.kept) {
       console.log(`Guest sweep: ${r.removed} idle guest(s) removed, with ${r.made} ${MADE} only guests had a part in; ${r.kept} left in place (something someone else uses still names them)`);
     }
     return r;
