@@ -19,4 +19,6 @@ export const api = {
   post: (url, body) => apiFetch(url, { method: 'POST', body: JSON.stringify(body) }),
   put: (url, body) => apiFetch(url, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (url) => apiFetch(url, { method: 'DELETE' }),
+  // The body is the image itself (a Blob, already shrunk by the page), not JSON.
+  upload: (url, blob) => apiFetch(url, { method: 'POST', body: blob, headers: { 'Content-Type': blob.type } }),
 };

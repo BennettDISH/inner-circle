@@ -1,8 +1,13 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
 import { nameError, textError } from '../services/circles.js';
+import { r2Enabled, putImage, getImage } from '../config/r2.js';
+import {
+  MAX_PHOTO_BYTES, MAX_PHOTOS_PER_LISTING, MB, PHOTOS_OFF, photoBudget, sniffImage, newPhotoKey,
+  releasePhotos, photoKeysOfListing,
+} from '../services/photos.js';
 
 const router = Router();
 
@@ -17,6 +22,11 @@ const textFieldError = ({ description, availability }) =>
   textError(description, 'Description') || textError(availability, 'Availability');
 
 router.use(authenticate);
+
+// A listing's photos, in the order they were added: [{ id }]. The bytes come from
+// GET /api/listings/:id/photos/:photoId, for circle members only.
+const PHOTOS = `COALESCE((SELECT json_agg(json_build_object('id', ph.id) ORDER BY ph.position, ph.id)
+                          FROM listing_photos ph WHERE ph.listing_id = l.id), '[]'::json) AS photos`;
 
 async function memberOf(centralUserId, circleId) {
   const { rows } = await pool.query(
@@ -43,7 +53,7 @@ router.get('/', wrap(async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `SELECT l.*, p.username, p.first_name, p.last_name
+    `SELECT l.*, p.username, p.first_name, p.last_name, ${PHOTOS}
      FROM listings l
      JOIN profiles p ON p.central_user_id = l.central_user_id
      WHERE ${where}
@@ -118,13 +128,167 @@ router.delete('/:id', wrap(async (req, res) => {
   if (rows[0].central_user_id !== req.user.central_user_id) {
     return res.status(403).json({ error: 'Not your listing' });
   }
+  // the photo rows go with the listing (ON DELETE CASCADE); their objects are asked for first
+  const keys = await photoKeysOfListing(pool, id);
   await pool.query('DELETE FROM listings WHERE id = $1', [id]);
+  await releasePhotos(keys);
+  res.json({ ok: true });
+}));
+
+// Photos. The page shrinks a picture first (WebP, longest side 2048 px); the body is the image
+// itself, not JSON. Only the listing's owner adds or removes them.
+const takePhoto = express.raw({ type: 'image/*', limit: MAX_PHOTO_BYTES });
+
+router.post('/:id/photos', (req, res, next) => {
+  if (!r2Enabled) return res.status(503).json({ error: PHOTOS_OFF });
+  takePhoto(req, res, (err) => {
+    if (err?.type === 'entity.too.large') {
+      return res.status(413).json({ error: `Photos can be up to ${MAX_PHOTO_BYTES / MB} MB` });
+    }
+    next(err);
+  });
+}, wrap(async (req, res) => {
+  const id = toId(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'Invalid listing id' });
+  const { rows: existing } = await pool.query(
+    `SELECT l.central_user_id, l.circle_id, (SELECT COUNT(*)::int FROM listing_photos WHERE listing_id = l.id) AS photos
+     FROM listings l WHERE l.id = $1`,
+    [id]
+  );
+  if (!existing[0]) return res.status(404).json({ error: 'Not found' });
+  if (existing[0].central_user_id !== req.user.central_user_id) {
+    return res.status(403).json({ error: 'Not your listing' });
+  }
+  const buffer = req.body;
+  const kind = Buffer.isBuffer(buffer) && sniffImage(buffer);
+  if (!kind) return res.status(400).json({ error: 'A photo (jpeg, png or webp) is required' });
+  if (existing[0].photos >= MAX_PHOTOS_PER_LISTING) {
+    return res.status(409).json({ error: `A listing can have up to ${MAX_PHOTOS_PER_LISTING} photos` });
+  }
+
+  const who = req.user.central_user_id;
+  if (photoBudget.room(who) < buffer.length) {
+    res.set('Retry-After', String(photoBudget.resetIn(who)));
+    return res.status(429).json({ error: `Photos can add up to ${photoBudget.max / MB} MB a day for an account — that is used up; try again tomorrow` });
+  }
+  photoBudget.add(who, buffer.length);
+  const refund = () => photoBudget.add(who, -buffer.length);
+
+  const key = newPhotoKey(existing[0].circle_id, kind.ext);
+  try {
+    await putImage(key, buffer, kind.type);
+  } catch (err) {
+    refund(); // nothing was stored
+    console.error('Photo upload failed:', err.name, err.$metadata?.httpStatusCode ?? '', err.message);
+    return res.status(500).json({ error: 'Upload failed' });
+  }
+
+  // The listing row is locked while the count is read and the row added, so two uploads at once
+  // cannot both take the last place (nor can a listing be deleted between).
+  const client = await pool.connect();
+  let outcome;
+  let photoId;
+  try {
+    await client.query('BEGIN');
+    const { rows: locked } = await client.query('SELECT id FROM listings WHERE id = $1 FOR UPDATE', [id]);
+    if (!locked[0]) {
+      outcome = 'gone';
+    } else {
+      const { rows: [{ n, next }] } = await client.query(
+        'SELECT COUNT(*)::int AS n, COALESCE(MAX(position) + 1, 0)::int AS next FROM listing_photos WHERE listing_id = $1',
+        [id]
+      );
+      if (n >= MAX_PHOTOS_PER_LISTING) {
+        outcome = 'full';
+      } else {
+        ({ rows: [{ id: photoId }] } = await client.query(
+          `INSERT INTO listing_photos (listing_id, object_key, content_type, bytes, position)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [id, key, kind.type, buffer.length, next]
+        ));
+        outcome = 'ok';
+      }
+    }
+    await client.query(outcome === 'ok' ? 'COMMIT' : 'ROLLBACK');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    refund();
+    await releasePhotos([key]);
+    throw err;
+  } finally {
+    client.release();
+  }
+  if (outcome !== 'ok') { // the stored object has no row: it goes again
+    refund();
+    await releasePhotos([key]);
+    return outcome === 'gone'
+      ? res.status(404).json({ error: 'Not found' })
+      : res.status(409).json({ error: `A listing can have up to ${MAX_PHOTOS_PER_LISTING} photos` });
+  }
+  res.status(201).json({ photo: { id: photoId } });
+}));
+
+router.get('/:id/photos/:photoId', wrap(async (req, res) => {
+  if (!r2Enabled) return res.status(503).json({ error: PHOTOS_OFF });
+  const id = toId(req.params.id);
+  const photoId = toId(req.params.photoId);
+  if (id === null || photoId === null) return res.status(400).json({ error: 'Invalid id' });
+  const { rows } = await pool.query(
+    `SELECT ph.object_key, l.central_user_id AS owner_id, l.circle_id
+     FROM listing_photos ph JOIN listings l ON l.id = ph.listing_id
+     WHERE l.id = $1 AND ph.id = $2`,
+    [id, photoId]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+  const me = req.user.central_user_id;
+  if (rows[0].owner_id !== me && !(await memberOf(me, rows[0].circle_id))) {
+    return res.status(403).json({ error: 'Not a member' });
+  }
+  let object;
+  try {
+    object = await getImage(rows[0].object_key);
+  } catch (err) {
+    if (err.name === 'NoSuchKey') return res.status(404).json({ error: 'Not found' });
+    console.error('Photo read failed:', err.name, err.$metadata?.httpStatusCode ?? '', err.message);
+    return res.status(502).json({ error: 'The photo could not be read — try again' });
+  }
+  const { body, contentType, length } = object;
+  res.set('Content-Type', contentType);
+  if (length) res.set('Content-Length', String(length));
+  // random key, never overwritten: the browser may keep it for good, but nothing shared may
+  res.set('Cache-Control', 'private, max-age=31536000, immutable');
+  // a stream that breaks on the way (storage resetting the connection) must not leave the
+  // request open: pipe stops at the source's error and ends nothing on its own
+  body.on('error', (err) => {
+    console.error('Photo stream failed:', err.name, err.message);
+    if (res.headersSent) return res.destroy();
+    res.removeHeader('Content-Length');
+    res.status(502).json({ error: 'The photo could not be read — try again' });
+  });
+  body.pipe(res);
+}));
+
+router.delete('/:id/photos/:photoId', wrap(async (req, res) => {
+  const id = toId(req.params.id);
+  const photoId = toId(req.params.photoId);
+  if (id === null || photoId === null) return res.status(400).json({ error: 'Invalid id' });
+  const { rows: existing } = await pool.query('SELECT central_user_id FROM listings WHERE id = $1', [id]);
+  if (!existing[0]) return res.status(404).json({ error: 'Not found' });
+  if (existing[0].central_user_id !== req.user.central_user_id) {
+    return res.status(403).json({ error: 'Not your listing' });
+  }
+  const { rows } = await pool.query(
+    'DELETE FROM listing_photos WHERE id = $2 AND listing_id = $1 RETURNING object_key',
+    [id, photoId]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+  await releasePhotos([rows[0].object_key]);
   res.json({ ok: true });
 }));
 
 router.get('/mine', wrap(async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT l.*, c.name AS circle_name
+    `SELECT l.*, c.name AS circle_name, ${PHOTOS}
      FROM listings l
      JOIN circles c ON c.id = l.circle_id
      WHERE l.central_user_id = $1

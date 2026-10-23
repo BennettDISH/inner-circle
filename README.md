@@ -54,6 +54,7 @@ Names only; `.env.example` has comments.
 - `ADMIN_CENTRAL_USER_IDS` (optional): comma-separated Waypoint ids who can open the look-only `/admin` page; unset means nobody can
 - `GUEST_RETENTION_DAYS` (optional, 30): guest accounts from before guests were refused, not signed in for this many days, are removed daily
 - `GUEST_CLEANUP_ENABLED` (optional): `false` turns the guest sweep off
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (optional): Cloudflare R2 for listing photos. Photos are off, and no photo control shows, unless all four are set. The bucket stays private (no public URL or custom domain): the app streams photos to circle members only
 - `PORT`, `NODE_ENV`
 
 ## Layout

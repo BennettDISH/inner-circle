@@ -6,11 +6,16 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ssoEnabled, setSsoEnabled] = useState(false);
+  // Listing photos show up only when the server says its photo storage is set up
+  const [photosEnabled, setPhotosEnabled] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/config')
       .then(res => (res.ok ? res.json() : { ssoEnabled: false }))
-      .then(data => setSsoEnabled(!!data.ssoEnabled))
+      .then(data => {
+        setSsoEnabled(!!data.ssoEnabled);
+        setPhotosEnabled(!!data.photos);
+      })
       .catch(() => setSsoEnabled(false));
   }, []);
 
@@ -55,7 +60,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, ssoLogin, ssoEnabled }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, ssoLogin, ssoEnabled, photosEnabled }}>
       {!loading && children}
     </AuthContext.Provider>
   );

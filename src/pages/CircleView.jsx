@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import ListingPhotos from '../components/ListingPhotos';
 
 export default function CircleView() {
   const { id } = useParams();
@@ -116,6 +117,7 @@ export default function CircleView() {
               </div>
               <h3 className="card__title" style={{ marginTop: '0.5rem' }}>{listing.title}</h3>
               <p className="card__subtitle">{listing.description}</p>
+              <ListingPhotos listing={listing} />
               {listing.availability && (
                 <p className="card__subtitle" style={{ marginTop: '0.5rem' }}>
                   <strong>Availability:</strong> {listing.availability}

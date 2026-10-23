@@ -1,12 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { shrinkImage } from '../lib/shrinkImage';
+import { MAX_PHOTOS } from '../components/ListingPhotos';
 
 export default function CreateListing() {
   const { id: circleId } = useParams();
   const navigate = useNavigate();
+  const { photosEnabled } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Photos picked before posting: shrunk Blobs with a preview, uploaded once the listing exists
+  const [pending, setPending] = useState([]); // [{ blob, preview }]
+  const pendingNow = useRef(pending);
+  pendingNow.current = pending;
+  useEffect(() => () => pendingNow.current.forEach(p => URL.revokeObjectURL(p.preview)), []);
+
+  const unpick = (item) => {
+    URL.revokeObjectURL(item.preview);
+    setPending(prev => prev.filter(p => p !== item));
+  };
+
+  const pick = async (e) => {
+    const files = [...(e.target.files || [])].slice(0, MAX_PHOTOS - pending.length);
+    e.target.value = '';
+    setError('');
+    try {
+      const shrunk = [];
+      for (const file of files) {
+        const blob = await shrinkImage(file);
+        shrunk.push({ blob, preview: URL.createObjectURL(blob) });
+      }
+      setPending(prev => [...prev, ...shrunk].slice(0, MAX_PHOTOS));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
   const [formData, setFormData] = useState({
     kind: 'have',
     category: 'item',
@@ -21,11 +51,25 @@ export default function CreateListing() {
     setLoading(true);
     setError('');
     try {
-      await api.post('/api/listings', {
+      const { listing } = await api.post('/api/listings', {
         ...formData,
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
         circle_id: Number(circleId),
       });
+      // The listing is posted; its photos go up one by one. One that fails does not undo it.
+      const failures = [];
+      if (photosEnabled) {
+        for (const item of pending) {
+          try {
+            await api.upload(`/api/listings/${listing.id}/photos`, item.blob);
+          } catch (err) {
+            failures.push(err.message);
+          }
+        }
+      }
+      if (failures.length) {
+        alert(`Your listing is posted, but ${failures.length} photo(s) did not upload (${failures[0]}). You can add them from My Listings.`);
+      }
       navigate(`/circles/${circleId}`);
     } catch (err) {
       setError(err.message);
@@ -99,6 +143,25 @@ export default function CreateListing() {
             placeholder="e.g. Free, Trade for coffee, Available weekends"
           />
         </div>
+
+        {photosEnabled && (
+          <div className="form-group">
+            <label htmlFor="listing-photos">Photos (up to {MAX_PHOTOS})</label>
+            {pending.length > 0 && (
+              <div className="photo-strip">
+                {pending.map(item => (
+                  <div key={item.preview} className="photo-strip__item">
+                    <img src={item.preview} alt="" className="photo-strip__img" />
+                    <button type="button" className="photo-strip__remove" onClick={() => unpick(item)} aria-label="Remove photo">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {pending.length < MAX_PHOTOS && (
+              <input id="listing-photos" type="file" accept="image/*" multiple onChange={pick} />
+            )}
+          </div>
+        )}
 
         <div className="form-group">
           <label htmlFor="listing-tags">Tags (comma-separated)</label>

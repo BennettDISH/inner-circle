@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import ListingPhotos from '../components/ListingPhotos';
 
 export default function MyListings() {
   const [listings, setListings] = useState([]);
@@ -16,7 +17,8 @@ export default function MyListings() {
   const toggleActive = (id, currentActive) => {
     api.put(`/api/listings/${id}`, { active: !currentActive })
       .then(res => {
-        setListings(listings.map(l => l.id === id ? res.listing : l));
+        // merged: the update's answer has neither the circle's name nor the photos
+        setListings(listings.map(l => l.id === id ? { ...l, ...res.listing } : l));
       })
       .catch(err => alert(err.message));
   };
@@ -55,6 +57,11 @@ export default function MyListings() {
               </div>
               <h3 className="card__title" style={{ marginTop: '0.5rem' }}>{listing.title}</h3>
               <p className="card__subtitle">{listing.description}</p>
+              <ListingPhotos
+                listing={listing}
+                editable
+                onChange={photos => setListings(listings.map(l => l.id === listing.id ? { ...l, photos } : l))}
+              />
               {listing.availability && (
                 <p className="card__subtitle" style={{ marginTop: '0.5rem' }}>
                   <strong>Availability:</strong> {listing.availability}

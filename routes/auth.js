@@ -4,6 +4,7 @@ import pool from '../config/db.js';
 import { centralRegister, centralLogin, exchangeCode, AUTH_SERVICE_URL, SSO_CLIENT_ID, SSO_ENABLED } from '../config/sso.js';
 import { authenticate, isAdmin } from '../middleware/auth.js';
 import { createLimiter } from '../middleware/rateLimit.js';
+import { r2Enabled } from '../config/r2.js';
 
 const router = Router();
 
@@ -33,9 +34,10 @@ function limitWaypointTries(req, res, next) {
 const CALLBACK_PATH = '/auth/callback';
 
 // Public config so the client can decide whether to show the SSO button without any
-// build-time (VITE) vars — SSO is configured entirely server-side.
+// build-time (VITE) vars — SSO is configured entirely server-side. `photos` is true only when
+// every R2 variable is set; until then the pages show no photo controls.
 router.get('/config', (req, res) => {
-  res.json({ ssoEnabled: SSO_ENABLED });
+  res.json({ ssoEnabled: SSO_ENABLED, photos: r2Enabled });
 });
 
 // Begin SSO: build the /oauth/authorize URL SERVER-side so the client_id and auth-service

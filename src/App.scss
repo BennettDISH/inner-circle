@@ -607,3 +607,82 @@ a {
 
   .btn:disabled { opacity: 0.4; cursor: default; }
 }
+
+// Listing photos (up to four, private: see components/AuthImage.jsx)
+.listing-photos { margin-top: $space-sm; }
+
+.photo-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: $space-sm;
+  margin-bottom: $space-sm;
+
+  &__item {
+    position: relative;
+    aspect-ratio: 4 / 3;
+  }
+
+  &__open {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 1px solid $border;
+    border-radius: $radius-sm;
+    background: $bg-secondary;
+    overflow: hidden;
+    cursor: zoom-in;
+  }
+
+  &__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: $radius-sm;
+  }
+
+  &__remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: $text-primary;
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+    &:hover { background: $danger; }
+  }
+}
+
+.photo--loading, .photo--missing {
+  background: $bg-secondary;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+}
+.photo--loading { opacity: 0.5; }
+
+.photo-add { cursor: pointer; margin-bottom: $space-sm; }
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-lg;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+
+  &__img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: $radius-sm;
+  }
+}

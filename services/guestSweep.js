@@ -34,6 +34,7 @@
 // It runs a minute after boot and then daily (server.js); GUEST_CLEANUP_ENABLED=false turns it
 // off. A failure is logged and never thrown: a background chore never takes the server down.
 import pool from '../config/db.js';
+import { photoKeysOfCircles, releasePhotos } from './photos.js';
 
 /** The accounts: the table, its own id, what makes one a guest and when it was last seen. */
 const USERS = 'profiles';
@@ -224,8 +225,18 @@ export async function sweepGuests({ db = pool, days: asked = Number(process.env.
           ids ? [window, ids] : [window])).rows.map((r) => r.id);
         const dead = await deadAmong();
         if (dryRun) { made += dead.length; continue; }
-        const take = (ids) => piece(client, p, window, () => deadAmong(ids),
-          (going) => client.query(`DELETE FROM ${root.table} WHERE ${root.id} = ANY($1)`, [going]));
+        // The roots are circles: the listing photos in them are objects in R2, which the cascade
+        // does not reach. Their keys are read inside the piece, before the rows go, and the
+        // objects are deleted only once the piece has committed (a piece undone keeps its photos).
+        const take = async (ids) => {
+          let keys = [];
+          const done = await piece(client, p, window, () => deadAmong(ids), async (going) => {
+            keys = await photoKeysOfCircles(client, going);
+            await client.query(`DELETE FROM ${root.table} WHERE ${root.id} = ANY($1)`, [going]);
+          });
+          if (done.went?.length) await releasePhotos(keys);
+          return done;
+        };
         for (const ids of pieces(dead, AT_ONCE)) made += await each(root.table, ids, take);
       }
       if (dryRun) return { stale: idle.length, made, removed: 0, kept: 0 };

@@ -94,6 +94,19 @@ export async function initDb() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Up to four photos per listing, as objects in the private R2 bucket (circles/<circle>/<random>).
+    -- The row is the access rule: the app streams an object only to a circle member.
+    CREATE TABLE IF NOT EXISTS listing_photos (
+      id SERIAL PRIMARY KEY,
+      listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+      object_key TEXT NOT NULL UNIQUE,
+      content_type VARCHAR(50) NOT NULL,
+      bytes INTEGER NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_listing_photos_listing ON listing_photos(listing_id, position);
+
     CREATE INDEX IF NOT EXISTS idx_listings_circle ON listings(circle_id);
     CREATE INDEX IF NOT EXISTS idx_listings_user ON listings(central_user_id);
     CREATE INDEX IF NOT EXISTS idx_listings_kind ON listings(kind);

@@ -83,7 +83,7 @@ describe('auth', () => {
   it('reports SSO as enabled without a token', async () => {
     const res = await app.request('GET', '/api/auth/config');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { ssoEnabled: true });
+    assert.deepEqual(res.body, { ssoEnabled: true, photos: false });
   });
 
   it('a sign-in mirrors the central account and issues a working token', async () => {
