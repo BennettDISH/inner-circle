@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { saveSsoReturn } from '../lib/returnPath';
 
 const AuthContext = createContext();
 
@@ -51,11 +52,12 @@ export function AuthProvider({ children }) {
     window.location.href = '/login';
   };
 
-  const ssoLogin = () => {
+  const ssoLogin = (returnTo) => {
     // The client_id and auth-service URL are held server-side; we only generate a random
     // state and bounce through our own /sso/login, which builds the authorize URL.
     const state = (window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
     sessionStorage.setItem('sso_state', state);
+    saveSsoReturn(returnTo);
     window.location.href = `/api/auth/sso/login?state=${state}`;
   };
 

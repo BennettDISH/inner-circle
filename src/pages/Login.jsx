@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { safePath } from '../lib/returnPath';
 
 export default function Login() {
   const { ssoLogin, login, ssoEnabled } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  // The page that sent the visitor here (e.g. /admin); signing in goes back to it.
+  const back = safePath(location.state?.from) || '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   // Why the Waypoint return was refused (a guest account), passed on by AuthCallback.
@@ -23,7 +26,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
       login(data.token, data.user);
-      navigate('/');
+      navigate(back, { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -37,7 +40,7 @@ export default function Login() {
         
         {ssoEnabled && (
           <>
-            <button className="btn btn--sso" onClick={ssoLogin}>
+            <button className="btn btn--sso" onClick={() => ssoLogin(back)}>
               Sign in with Waypoint
             </button>
 

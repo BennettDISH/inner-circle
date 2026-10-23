@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { takeSsoReturn } from '../lib/returnPath';
 
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
@@ -43,7 +44,7 @@ export default function AuthCallback() {
       .then(data => {
         if (!data) return;
         login(data.token, data.user);
-        navigate('/');
+        navigate(takeSsoReturn(), { replace: true });
       })
       .catch(err => {
         console.error('SSO Error:', err);

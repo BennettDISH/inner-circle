@@ -4,6 +4,26 @@ import { api } from '../services/api';
 // Site admin: look-only lists of every account, circle, membership, listing and request.
 // The server checks ADMIN_CENTRAL_USER_IDS on every call; this page only reads.
 
+// Deployed commit, health check and the env-var switches (on or off, never a value).
+function Status() {
+  const [status, setStatus] = useState(null);
+  useEffect(() => {
+    api.get('/api/admin/status').then(setStatus).catch(() => setStatus(false));
+  }, []);
+  if (status === null) return null;
+  if (status === false) return <div className="alert alert--error" role="alert">Could not load the status.</div>;
+  return (
+    <dl className="admin-status">
+      <div><dt>App</dt><dd>{status.app}</dd></div>
+      <div><dt>Commit</dt><dd>{status.commit || <span className="admin-muted">unknown</span>}</dd></div>
+      <div><dt>Health</dt><dd>{status.health}</dd></div>
+      {status.switches.map((s) => (
+        <div key={s.name}><dt>{s.name}</dt><dd>{s.on ? 'on' : 'off'}</dd></div>
+      ))}
+    </dl>
+  );
+}
+
 const name = (first, last, username) => [first, last].filter(Boolean).join(' ') || username;
 const date = (value) => (value ? new Date(value).toLocaleDateString() : '');
 
@@ -125,6 +145,8 @@ export default function Admin() {
         <h1 className="page-title" style={{ marginBottom: 0 }}>Site admin</h1>
         <span className="admin-muted">Look only: nothing here changes anything.</span>
       </div>
+
+      <Status />
 
       <div className="tabs">
         {Object.entries(TABS).map(([key, t]) => (

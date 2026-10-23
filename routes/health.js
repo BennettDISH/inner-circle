@@ -7,20 +7,26 @@ import pool from '../config/db.js';
 
 export const TIMEOUT_MS = 3000;
 
-export function healthHandler({ query = (sql) => pool.query(sql), timeoutMs = TIMEOUT_MS } = {}) {
+// True when one SELECT 1 comes back within timeoutMs. Shared with the admin status panel.
+export async function databaseAnswers({ query = (sql) => pool.query(sql), timeoutMs = TIMEOUT_MS } = {}) {
+  let timer;
+  const asked = Promise.resolve().then(() => query('SELECT 1'));
+  asked.catch(() => {}); // a late failure after the timeout must not become an unhandled rejection
+  const late = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs); });
+  try {
+    await Promise.race([asked, late]);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function healthHandler(options) {
   return async (_req, res) => {
     res.set('Cache-Control', 'no-store');
-    let timer;
-    const asked = Promise.resolve().then(() => query('SELECT 1'));
-    asked.catch(() => {}); // a late failure after the timeout must not become an unhandled rejection
-    const late = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs); });
-    try {
-      await Promise.race([asked, late]);
-      res.json({ status: 'ok', db: 'ok' });
-    } catch {
-      res.status(503).json({ status: 'unavailable', db: 'not answering' });
-    } finally {
-      clearTimeout(timer);
-    }
+    if (await databaseAnswers(options)) res.json({ status: 'ok', db: 'ok' });
+    else res.status(503).json({ status: 'unavailable', db: 'not answering' });
   };
 }

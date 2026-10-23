@@ -2,10 +2,15 @@
 // pages hold 50, search matches anywhere, and join codes never come out.
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { startApp } from './helpers.js';
 
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ADMIN_ID = 1000; // the stand-in Waypoint's first account
-const ROUTES = ['/api/admin/users', '/api/admin/circles', '/api/admin/members', '/api/admin/listings', '/api/admin/requests'];
+const ROUTES = ['/api/admin/status', '/api/admin/users', '/api/admin/circles', '/api/admin/members', '/api/admin/listings', '/api/admin/requests'];
 
 let app;
 let admin;
@@ -13,10 +18,14 @@ let owner;
 let friend;
 let family;
 let book;
+let dist;
 const joinCodes = [];
 
 before(async () => {
-  app = await startApp({ adminIds: String(ADMIN_ID) });
+  // The page comes from a throwaway dist/ holding index.html, so no build has to run first.
+  dist = fs.mkdtempSync(path.join(os.tmpdir(), 'inner-circle-dist-'));
+  fs.copyFileSync(path.join(root, 'index.html'), path.join(dist, 'index.html'));
+  app = await startApp({ adminIds: String(ADMIN_ID), distDir: dist });
   const res = await app.request('POST', '/api/auth/register', {
     body: { username: 'siteadmin', email: 'admin@example.com', password: 'pw', first_name: 'Site', last_name: 'Admin' },
   });
@@ -47,7 +56,37 @@ before(async () => {
     );
   }
 });
-after(async () => { await app?.stop(); });
+after(async () => {
+  await app?.stop();
+  if (dist) fs.rmSync(dist, { recursive: true, force: true });
+});
+
+describe('admin page', () => {
+  it('/admin is the app shell for anyone: it carries no account or admin data', async () => {
+    // The page is the React app; who may see what is decided by /api/admin/*, below.
+    for (const token of [undefined, owner.token, admin.token]) {
+      const res = await app.request('GET', '/admin', { token });
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get('content-type'), /text\/html/);
+      for (const text of ['siteadmin', owner.user.username, 'Garden Club', family.join_code]) {
+        assert.ok(!String(res.body).includes(text), text);
+      }
+    }
+  });
+
+  it('status: the app, its commit, the health check and the switches as on or off', async () => {
+    const res = await admin.as('GET', '/api/admin/status');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.app, 'inner-circle');
+    assert.equal(res.body.health, 'ok');
+    assert.deepEqual(res.body.switches, [
+      { name: 'Listing photos (R2)', on: false },
+      { name: 'Waypoint sign-in', on: true },
+    ]);
+    const text = JSON.stringify(res.body);
+    for (const secret of ['test-secret', 'SECRET']) assert.ok(!text.includes(secret));
+  });
+});
 
 describe('admin gate', () => {
   it('sign-in and /profile flag the admin', async () => {

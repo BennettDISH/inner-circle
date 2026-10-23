@@ -2,6 +2,9 @@ import { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
+import { databaseAnswers } from './health.js';
+import { r2Enabled } from '../config/r2.js';
+import { SSO_ENABLED } from '../config/sso.js';
 
 // Site admin (ADMIN_CENTRAL_USER_IDS): look-only lists of everything in the app. Every route
 // is a GET; nothing here writes. Join codes stay out, since a code is the key to a circle.
@@ -13,6 +16,22 @@ router.use((req, res, next) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admins only' });
   next();
 });
+
+// The top of /admin, look-only: the deployed commit, whether the database answers, and the
+// env-var switches as on or off. Never a value, only whether it is set.
+router.get('/status', wrap(async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const commit = (process.env.RAILWAY_GIT_COMMIT_SHA || '').slice(0, 7);
+  res.json({
+    app: 'inner-circle',
+    commit: commit || null,
+    health: (await databaseAnswers()) ? 'ok' : 'database not answering',
+    switches: [
+      { name: 'Listing photos (R2)', on: r2Enabled },
+      { name: 'Waypoint sign-in', on: SSO_ENABLED },
+    ],
+  });
+}));
 
 class BadQuery extends Error {}
 

@@ -5,6 +5,8 @@ circles, post listings, and manage incoming requests.
 
 Live: https://inner-circle-production-a7f8.up.railway.app
 
+Admin: `/admin` (status and look-only lists), Waypoint id 1 only (`ADMIN_CENTRAL_USER_IDS=1`).
+
 ## Stack
 React 19 + Vite · Express 4 · Postgres · SSO via `auth-service` (Waypoint)
 
@@ -51,7 +53,7 @@ Names only; `.env.example` has comments.
 - `JWT_SECRET`: signs the app's own 7-day session tokens
 - `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`: Waypoint
 - `APP_BASE_URL` (optional): public base for the SSO `redirect_uri`
-- `ADMIN_CENTRAL_USER_IDS` (optional): comma-separated Waypoint ids who can open the look-only `/admin` page; unset means nobody can
+- `ADMIN_CENTRAL_USER_IDS` (optional): Waypoint ids who can open `/admin`, exactly `1` on the live service; unset means nobody can
 - `GUEST_RETENTION_DAYS` (optional, 30): guest accounts from before guests were refused, not signed in for this many days, are removed daily
 - `GUEST_CLEANUP_ENABLED` (optional): `false` turns the guest sweep off
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (optional): Cloudflare R2 for listing photos. Photos are off, and no photo control shows, unless all four are set. The bucket stays private (no public URL or custom domain): the app streams photos to circle members only

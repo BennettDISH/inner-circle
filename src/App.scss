@@ -517,6 +517,20 @@ a {
 
 .admin-muted { color: $text-secondary; font-size: 0.85rem; }
 
+.admin-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-sm $space-lg;
+  margin: 0 0 $space-md;
+  padding: $space-sm $space-md;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+  font-size: 0.9rem;
+
+  dt { color: $text-secondary; font-size: 0.8rem; }
+  dd { margin: 0; }
+}
+
 .admin-toolbar {
   display: flex;
   gap: $space-sm;

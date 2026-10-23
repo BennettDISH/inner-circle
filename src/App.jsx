@@ -58,7 +58,7 @@ export default function App() {
           <Route path="/circles/:id/listings/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
           <Route path="/my-listings" element={<ProtectedRoute><MyListings /></ProtectedRoute>} />
           <Route path="/requests" element={<ProtectedRoute><RequestsInbox /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute admin><Admin /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>
