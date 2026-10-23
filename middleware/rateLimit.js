@@ -1,6 +1,6 @@
-// In-memory counters for routes a script could hammer: wrong join-code guesses, guest
-// sign-ins and Waypoint sign-in tries. One fixed window per key; a redeploy clears them, which is fine for limits measured
-// in minutes and hours. Keys built from req.ip are the real client address only because
+// In-memory counters for routes a script could hammer: wrong join-code guesses and Waypoint
+// sign-in tries. One fixed window per key; a redeploy clears them, which is fine for limits
+// measured in minutes and hours. Keys built from req.ip are the real client address only because
 // server.js trusts exactly one proxy hop (Railway's edge).
 
 // Stale windows are swept once the map gets this big, so a flood of keys can't grow it without

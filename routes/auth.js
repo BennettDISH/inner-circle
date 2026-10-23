@@ -1,23 +1,24 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
-import { centralRegister, centralLogin, centralGuest, exchangeCode, AUTH_SERVICE_URL, SSO_CLIENT_ID, SSO_ENABLED } from '../config/sso.js';
+import { centralRegister, centralLogin, exchangeCode, AUTH_SERVICE_URL, SSO_CLIENT_ID, SSO_ENABLED } from '../config/sso.js';
 import { authenticate, isAdmin } from '../middleware/auth.js';
 import { createLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
-// Each guest sign-in mints a new Waypoint account, so one address gets 5 an hour.
-const GUESTS_PER_HOUR = 5;
-const guestMints = createLimiter({ max: GUESTS_PER_HOUR, windowMs: 60 * 60 * 1000 });
+// Guests are refused: a guest who loses the browser can never sign back in to an answer or a
+// circle. Waypoint's own sign-in page offers "Continue as guest" whatever an app wants, so the
+// refusal is here, before any profile or token is made.
+const GUEST_REFUSED = 'Guest accounts can’t be used here. Sign in with your own account.';
 
 // Waypoint counts password logins (/api/auth/proxy/login) and code exchanges (/oauth/token) in
 // one bucket, 30 per 15 minutes per calling address, and every visitor reaches it from this
 // server's one address. Without a count here, one visitor could use up the whole site's
 // sign-ins. So each visitor address gets 10 tries per 15 minutes, shared by the password login
 // and the SSO return the way Waypoint shares its bucket. Every try counts, right or wrong: each
-// one uses a Waypoint try. This is a different count from the guest and join-code limits, so
-// they never use each other up.
+// one uses a Waypoint try. This is a different count from the join-code limit, so they never use
+// each other up.
 const WAYPOINT_TRIES = 10;
 const waypointTries = createLimiter({ max: WAYPOINT_TRIES, windowMs: 15 * 60 * 1000 });
 function limitWaypointTries(req, res, next) {
@@ -82,11 +83,17 @@ function signedIn(profile) {
   return { token: issueToken(profile), user: { ...profile, is_admin: isAdmin(profile.central_user_id) } };
 }
 
+// The three ways in all end here: mirror the Waypoint account and answer with the app's token, or
+// answer 403 for a guest before a profile row or a token exists.
+async function signIn(res, data) {
+  if (data.is_guest) return res.status(403).json({ error: GUEST_REFUSED });
+  const profile = await findOrCreateProfile(data);
+  res.json(signedIn(profile));
+}
+
 router.post('/register', async (req, res) => {
   try {
-    const data = await centralRegister(req.body);
-    const profile = await findOrCreateProfile(data);
-    res.json(signedIn(profile));
+    await signIn(res, await centralRegister(req.body));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -94,9 +101,7 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', limitWaypointTries, async (req, res) => {
   try {
-    const data = await centralLogin(req.body);
-    const profile = await findOrCreateProfile(data);
-    res.json(signedIn(profile));
+    await signIn(res, await centralLogin(req.body));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -104,24 +109,7 @@ router.post('/login', limitWaypointTries, async (req, res) => {
 
 router.post('/sso-callback', limitWaypointTries, async (req, res) => {
   try {
-    const data = await exchangeCode(req.body.code);
-    const profile = await findOrCreateProfile(data);
-    res.json(signedIn(profile));
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// One-click guest: mint a central guest account and sign in as it — no redirect, no form.
-router.post('/guest', async (req, res) => {
-  if (!SSO_ENABLED) return res.status(503).json({ error: 'Guest sign-in is not available' });
-  if (guestMints.blocked(req.ip)) {
-    return res.status(429).json({ error: 'Too many guest sign-ins from this network. Try again in an hour.' });
-  }
-  guestMints.hit(req.ip);
-  try {
-    const profile = await findOrCreateProfile(await centralGuest());
-    res.json(signedIn(profile));
+    await signIn(res, await exchangeCode(req.body.code));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -80,8 +80,11 @@ async function startPostgres() {
 }
 
 // Answers the auth-service calls in config/sso.js, checking the app's client credentials:
-// guest (a new central account per call, ids from 1000 up), register, login, and the OAuth
-// code exchange. issueCode() stands in for a user approving the app on Waypoint.
+// register (a new central account per call, ids from 1000 up), login, and the OAuth code
+// exchange. issueCode() stands in for a user approving the app on Waypoint, and
+// issueGuestCode() for someone who picked "Continue as guest" on Waypoint's own sign-in page.
+// A register under a `guest-` username comes back flagged is_guest, to prove the app refuses
+// that on every route.
 async function startWaypoint() {
   let nextId = 1000;
   const accounts = new Map(); // email -> account with password
@@ -99,10 +102,6 @@ async function startWaypoint() {
     if (body.client_id !== CLIENT_ID || body.client_secret !== CLIENT_SECRET) return send(401, { error: 'Invalid client' });
 
     switch (req.url) {
-      case '/api/auth/proxy/guest': {
-        const id = nextId++;
-        return send(200, { central_user_id: id, username: `guest${id}`, email: null, first_name: `Guest${id}`, last_name: '', is_guest: true });
-      }
       case '/api/auth/proxy/register': {
         if (!body.email || !body.password || !body.username) return send(400, { error: 'Username, email and password required' });
         if (accounts.has(body.email)) return send(409, { error: 'Email already registered' });
@@ -113,6 +112,7 @@ async function startWaypoint() {
           first_name: body.first_name || '',
           last_name: body.last_name || '',
           password: body.password,
+          ...(body.username.startsWith('guest-') && { is_guest: true }),
         };
         accounts.set(body.email, account);
         return send(201, publicView(account));
@@ -140,6 +140,12 @@ async function startWaypoint() {
       const code = `code-${nextCode++}`;
       codes.set(code, account);
       return code;
+    },
+    /** A code for a brand-new Waypoint guest account; returns { code, account }. */
+    issueGuestCode() {
+      const id = nextId++;
+      const account = { central_user_id: id, username: `guest-swift-otter-${id}`, email: null, first_name: '', last_name: '', is_guest: true };
+      return { code: this.issueCode(account), account };
     },
     stop: () => new Promise((r) => server.close(r)),
   };
@@ -189,10 +195,11 @@ export async function startApp({ adminIds = '', distDir = '' } = {}) {
   }
 
   // Each client sends its requests from its own address, in X-Forwarded-For the way Railway's
-  // edge forwards it, so the per-address limits (5 guest sign-ins an hour, 10 Waypoint sign-in
-  // tries per 15 minutes) don't run out across a test file. A guest keeps one address for its
+  // edge forwards it, so the per-address limits (10 Waypoint sign-in tries per 15 minutes, 10
+  // wrong join codes) don't run out across a test file. A user keeps one address for their
   // life; a request with no headers of its own comes from a fresh one.
   let nextClient = 1;
+  let nextUser = 1;
   const clientAddress = () => {
     const n = nextClient++;
     return `198.18.${n >> 8}.${n & 255}`;
@@ -230,12 +237,17 @@ export async function startApp({ adminIds = '', distDir = '' } = {}) {
     request,
     alive,
     log: () => log,
-    /** Sign in through the real guest flow from `address` (a fresh one by default); returns
-     *  { token, user, address, as } where `as` is a request function bound to this user's token
-     *  and address (a fourth argument replaces the headers). */
-    async guest(address = clientAddress()) {
-      const res = await request('POST', '/api/auth/guest', { headers: from(address) });
-      if (res.status !== 200) throw new Error(`guest sign-in failed: ${res.status} ${JSON.stringify(res.body)}`);
+    /** Register a new account through the real register route (Waypoint's stand-in makes the
+     *  central account) from `address` (a fresh one by default); returns { token, user, address,
+     *  as } where `as` is a request function bound to this user's token and address (a fourth
+     *  argument replaces the headers). */
+    async user(address = clientAddress()) {
+      const n = nextUser++;
+      const res = await request('POST', '/api/auth/register', {
+        headers: from(address),
+        body: { username: `user${n}`, email: `user${n}@example.test`, password: `pw-${n}`, first_name: `User${n}`, last_name: 'Test' },
+      });
+      if (res.status !== 200) throw new Error(`sign-up failed: ${res.status} ${JSON.stringify(res.body)}`);
       return signedIn(res.body, address);
     },
     async stop() {

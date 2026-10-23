@@ -7,10 +7,11 @@ Open ideas, planned work and known issues. One line each.
 - A circle whose last admin leaves has no admin left, and there is no way to remove a member or change a join code.
 
 ## Done
+- Guests are refused: no "Continue as guest" button or `/api/auth/guest` route, and a Waypoint guest gets a 403 at the SSO callback (and register/login) before any profile or token exists (2026-10-23). Guest accounts already in production are left alone.
 - Circle names and listing titles checked at 255 characters (plain 400, input maxLength); join codes drawn with `crypto.randomInt`, one retry on a clash (2026-10-22).
 - Requests: refused on an inactive listing and a second pending one from the same person (409); the sender can only cancel, only the listing owner accepts, declines or completes (2026-10-22).
 - Content-Security-Policy on (script-src self and the bug-tracker widget; no inline script), since the session token sits in localStorage (2026-10-22).
-- 10 wrong join codes per 15 minutes per address and per account, 5 guest sign-ins an hour per address; `trust proxy` narrowed to Railway's one hop (2026-10-22).
+- 10 wrong join codes per 15 minutes per address and per account; `trust proxy` narrowed to Railway's one hop (2026-10-22).
 - Unknown `/api` paths answer a JSON 404; sign-in upserts the profile in one statement; a listing edit can't blank the title or send a non-boolean `active`; every foreign key column is indexed (2026-10-21).
 - Signed-in pages at phone width (nav, circle header, tabs, no iPhone focus zoom) and for keyboard and screen readers (join code button, main landmark, aria-current/aria-pressed, role="alert" errors) (2026-10-21).
 - Form labels tied to their fields on every page (2026-10-19, 2026-10-21).

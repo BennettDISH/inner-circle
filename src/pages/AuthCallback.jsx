@@ -30,11 +30,18 @@ export default function AuthCallback() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
     })
-      .then(res => {
+      .then(async res => {
+        // A refusal (a guest account) is explained on the sign-in page, not here.
+        if (res.status === 403) {
+          const e = await res.json().catch(() => ({}));
+          navigate('/login', { replace: true, state: { refused: e.error || 'Sign-in was refused.' } });
+          return null;
+        }
         if (!res.ok) return res.json().then(e => { throw new Error(e.error || 'Failed to exchange code'); });
         return res.json();
       })
       .then(data => {
+        if (!data) return;
         login(data.token, data.user);
         navigate('/');
       })

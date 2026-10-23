@@ -15,17 +15,17 @@ const INT4_MAX = 2147483647; // the largest Postgres INTEGER
 const INT4_MIN = -2147483648;
 const HUGE = 99999999999;
 
-/** A circle made by a fresh guest. Returns the owner and the circle. */
+/** A circle made by a new user. Returns the owner and the circle. */
 async function newCircle(name = 'Family') {
-  const owner = await app.guest();
+  const owner = await app.user();
   const res = await owner.as('POST', '/api/circles', { name, description: 'Close family' });
   assert.equal(res.status, 200);
   return { owner, circle: res.body.circle };
 }
 
-/** A second guest who joins the circle by its code. */
+/** A second user who joins the circle by its code. */
 async function joiner(circle) {
-  const g = await app.guest();
+  const g = await app.user();
   const res = await g.as('POST', '/api/circles/join', { join_code: circle.join_code });
   assert.equal(res.status, 200);
   return g;
@@ -86,11 +86,11 @@ describe('auth', () => {
     assert.deepEqual(res.body, { ssoEnabled: true });
   });
 
-  it('guest sign-in mirrors the central account and issues a working token', async () => {
-    const g = await app.guest();
+  it('a sign-in mirrors the central account and issues a working token', async () => {
+    const g = await app.user();
     assert.ok(g.token);
-    assert.equal(g.user.username, `guest${g.user.central_user_id}`);
-    assert.equal(g.user.email, null);
+    assert.match(g.user.username, /^user\d+$/);
+    assert.match(g.user.email, /^user\d+@example\.test$/);
     const decoded = jwt.verify(g.token, JWT_SECRET);
     assert.equal(decoded.central_user_id, g.user.central_user_id);
 
@@ -173,14 +173,14 @@ describe('auth', () => {
 
 describe('circles', () => {
   it('needs a name', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const res = await g.as('POST', '/api/circles', { description: 'no name' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'Name required');
   });
 
   it('a name or description Postgres could not store is a plain 400, and nothing is made', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const count = async () => (await app.db.query('SELECT COUNT(*)::int AS n FROM circles')).rows[0].n;
     const start = await count();
     const cases = [
@@ -201,7 +201,7 @@ describe('circles', () => {
   });
 
   it('a name of exactly 255 characters is fine, counted in characters rather than bytes', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     for (const name of ['x'.repeat(255), '😀'.repeat(255)]) {
       const res = await g.as('POST', '/api/circles', { name });
       assert.equal(res.status, 200, name.slice(0, 5));
@@ -226,8 +226,8 @@ describe('circles', () => {
 
   it('join by code: any case, idempotent, members only see it', async () => {
     const { owner, circle } = await newCircle();
-    const other = await app.guest();
-    const outsider = await app.guest();
+    const other = await app.user();
+    const outsider = await app.user();
 
     assert.equal((await other.as('GET', `/api/circles/${circle.id}`)).status, 403);
 
@@ -256,7 +256,7 @@ describe('circles', () => {
 
   it('a wrong, missing or non-string join code is 404', async () => {
     await newCircle();
-    const g = await app.guest();
+    const g = await app.user();
     for (const body of [{ join_code: 'ZZZZZZZ' }, {}, { join_code: { $ne: '' } }, { join_code: 12 }]) {
       const res = await g.as('POST', '/api/circles/join', body);
       assert.equal(res.status, 404, JSON.stringify(body));
@@ -266,7 +266,7 @@ describe('circles', () => {
   });
 
   it('a circle that does not exist reads as not a member', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const res = await g.as('GET', `/api/circles/${MISSING}`);
     assert.equal(res.status, 403);
   });
@@ -289,7 +289,7 @@ describe('circles', () => {
 describe('listings', () => {
   it('listing a circle needs circle_id and membership', async () => {
     const { circle } = await newCircle();
-    const outsider = await app.guest();
+    const outsider = await app.user();
     const none = await outsider.as('GET', '/api/listings');
     assert.equal(none.status, 400);
     assert.equal(none.body.error, 'circle_id required');
@@ -299,7 +299,7 @@ describe('listings', () => {
 
   it('create checks its input and membership', async () => {
     const { owner, circle } = await newCircle();
-    const outsider = await app.guest();
+    const outsider = await app.user();
     const cases = [
       [{ ...drill, circle_id: circle.id, title: '' }, 'circle_id and title required'],
       [{ ...drill }, 'circle_id and title required'],
@@ -474,7 +474,7 @@ describe('requests', () => {
   async function setup() {
     const { owner, circle } = await newCircle();
     const member = await joiner(circle);
-    const outsider = await app.guest();
+    const outsider = await app.user();
     const listing = (await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id })).body.listing;
     return { owner, member, outsider, circle, listing };
   }
@@ -650,7 +650,7 @@ describe('requests', () => {
 
 describe('malformed ids', () => {
   it('answer 400, and well-formed ids that match nothing answer 404', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const cases = [
       ['GET', '/api/circles/abc', undefined, 400],
       ['DELETE', '/api/circles/abc/leave', undefined, 400],
@@ -699,7 +699,7 @@ describe('malformed ids', () => {
 
 describe('bad input does not take the server down', () => {
   it('malformed JSON is a 400 in JSON', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const res = await app.request('POST', '/api/circles', { token: g.token, raw: '{"name": ' });
     assert.equal(res.status, 400);
     assert.deepEqual(res.body, { error: 'Bad request' });
@@ -724,7 +724,7 @@ describe('bad input does not take the server down', () => {
   });
 
   it('a failed circle insert rolls back, answers 500 without details and leaves nothing behind', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const count = async () => (await app.db.query('SELECT COUNT(*)::int AS n FROM circles')).rows[0].n;
     const start = await count();
     // The circle goes in first and the admin membership second; the second fails.
@@ -741,7 +741,7 @@ describe('bad input does not take the server down', () => {
 
 describe('unknown API paths', () => {
   it('answer 404 in JSON, signed in or not, instead of the app page', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     const cases = [
       ['GET', '/api/nothing-here', undefined],
       ['POST', '/api/nothing-here', undefined],
@@ -776,7 +776,7 @@ describe('schema', () => {
 
 describe('admin lists', () => {
   it('are closed to everyone while ADMIN_CENTRAL_USER_IDS is empty', async () => {
-    const g = await app.guest();
+    const g = await app.user();
     assert.equal(g.user.is_admin, false);
     const res = await g.as('GET', '/api/admin/users');
     assert.equal(res.status, 403);

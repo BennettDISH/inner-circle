@@ -21,7 +21,10 @@ SSO is configured entirely server-side. The client never sees the `client_id` or
 auth-service URL: the "Sign in with Waypoint" button hits `GET /api/auth/sso/login`,
 which builds the `/oauth/authorize` redirect from `AUTH_SERVICE_URL` + `SSO_CLIENT_ID`.
 Only `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, and `SSO_CLIENT_SECRET` are needed (no `VITE_*`).
-Every sign-in goes through the auth service; there are no local passwords.
+Every sign-in goes through the auth service; there are no local passwords. Guests are not
+allowed: Waypoint's own sign-in page offers "Continue as guest", and the app answers that with a
+403 ("Guest accounts can’t be used here. Sign in with your own account.") before any profile
+or token is made.
 
 Production: `npm run build` then `npm start`.
 
@@ -49,7 +52,7 @@ Names only; `.env.example` has comments.
 - `AUTH_SERVICE_URL`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`: Waypoint
 - `APP_BASE_URL` (optional): public base for the SSO `redirect_uri`
 - `ADMIN_CENTRAL_USER_IDS` (optional): comma-separated Waypoint ids who can open the look-only `/admin` page; unset means nobody can
-- `GUEST_RETENTION_DAYS` (optional, 30): guests not signed in for this many days are removed daily
+- `GUEST_RETENTION_DAYS` (optional, 30): guest accounts from before guests were refused, not signed in for this many days, are removed daily
 - `GUEST_CLEANUP_ENABLED` (optional): `false` turns the guest sweep off
 - `PORT`, `NODE_ENV`
 
@@ -60,7 +63,7 @@ Names only; `.env.example` has comments.
 - `config/sso.js`: server-to-server calls to the auth service.
 - `middleware/auth.js`: `authenticate` (Bearer JWT, profile re-read from the DB).
 - `routes/` — `auth.js`, `circles.js`, `listings.js`, `requests.js`, `admin.js` (site admin lists, GET only).
-- `services/guestSweep.js`: the daily removal of idle guests and the circles only guests had a part in.
+- `services/guestSweep.js`: the daily removal of idle old guest accounts and the circles only guests had a part in.
 - `src/pages/` — Dashboard, CreateCircle, CircleView, CreateListing, MyListings, RequestsInbox, Admin, Login, Register, AuthCallback.
 
 ## Notes

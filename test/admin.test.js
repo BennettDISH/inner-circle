@@ -23,8 +23,8 @@ before(async () => {
   assert.equal(res.body.user.central_user_id, ADMIN_ID);
   admin = { ...res.body, as: (method, url, body) => app.request(method, url, { token: res.body.token, body }) };
 
-  owner = await app.guest();
-  friend = await app.guest();
+  owner = await app.user();
+  friend = await app.user();
   family = (await owner.as('POST', '/api/circles', { name: 'Garden Club', description: 'Seeds and shears' })).body.circle;
   const other = (await friend.as('POST', '/api/circles', { name: 'Book Swap' })).body.circle;
   joinCodes.push(family.join_code, other.join_code);
