@@ -11,6 +11,23 @@ const router = Router();
 const GUESTS_PER_HOUR = 5;
 const guestMints = createLimiter({ max: GUESTS_PER_HOUR, windowMs: 60 * 60 * 1000 });
 
+// Waypoint counts password logins (/api/auth/proxy/login) and code exchanges (/oauth/token) in
+// one bucket, 30 per 15 minutes per calling address, and every visitor reaches it from this
+// server's one address. Without a count here, one visitor could use up the whole site's
+// sign-ins. So each visitor address gets 10 tries per 15 minutes, shared by the password login
+// and the SSO return the way Waypoint shares its bucket. Every try counts, right or wrong: each
+// one uses a Waypoint try. This is a different count from the guest and join-code limits, so
+// they never use each other up.
+const WAYPOINT_TRIES = 10;
+const waypointTries = createLimiter({ max: WAYPOINT_TRIES, windowMs: 15 * 60 * 1000 });
+function limitWaypointTries(req, res, next) {
+  if (waypointTries.blocked(req.ip)) {
+    return res.status(429).json({ error: 'Too many sign-in attempts from this network. Try again in 15 minutes.' });
+  }
+  waypointTries.hit(req.ip);
+  next();
+}
+
 // The SPA route that renders AuthCallback and posts the code back to /sso-callback.
 const CALLBACK_PATH = '/auth/callback';
 
@@ -75,7 +92,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', limitWaypointTries, async (req, res) => {
   try {
     const data = await centralLogin(req.body);
     const profile = await findOrCreateProfile(data);
@@ -85,7 +102,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/sso-callback', async (req, res) => {
+router.post('/sso-callback', limitWaypointTries, async (req, res) => {
   try {
     const data = await exchangeCode(req.body.code);
     const profile = await findOrCreateProfile(data);

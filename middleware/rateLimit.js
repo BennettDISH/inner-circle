@@ -1,5 +1,5 @@
-// In-memory counters for routes a script could hammer: wrong join-code guesses and guest
-// sign-ins. One fixed window per key; a redeploy clears them, which is fine for limits measured
+// In-memory counters for routes a script could hammer: wrong join-code guesses, guest
+// sign-ins and Waypoint sign-in tries. One fixed window per key; a redeploy clears them, which is fine for limits measured
 // in minutes and hours. Keys built from req.ip are the real client address only because
 // server.js trusts exactly one proxy hop (Railway's edge).
 

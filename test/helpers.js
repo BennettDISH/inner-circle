@@ -188,8 +188,20 @@ export async function startApp({ adminIds = '', distDir = '' } = {}) {
     await sleep(100);
   }
 
-  /** Send a request. `raw` sends a string body as-is (for malformed JSON). */
-  const request = async (method, url, { token, body, raw, headers: extraHeaders } = {}) => {
+  // Each client sends its requests from its own address, in X-Forwarded-For the way Railway's
+  // edge forwards it, so the per-address limits (5 guest sign-ins an hour, 10 Waypoint sign-in
+  // tries per 15 minutes) don't run out across a test file. A guest keeps one address for its
+  // life; a request with no headers of its own comes from a fresh one.
+  let nextClient = 1;
+  const clientAddress = () => {
+    const n = nextClient++;
+    return `198.18.${n >> 8}.${n & 255}`;
+  };
+  const from = (address) => ({ 'X-Forwarded-For': address });
+
+  /** Send a request. `raw` sends a string body as-is (for malformed JSON). `headers` replace
+   *  the default fresh client address. */
+  const request = async (method, url, { token, body, raw, headers: extraHeaders = from(clientAddress()) } = {}) => {
     const headers = { ...extraHeaders };
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body !== undefined || raw !== undefined) headers['Content-Type'] = 'application/json';
@@ -203,16 +215,6 @@ export async function startApp({ adminIds = '', distDir = '' } = {}) {
     try { data = JSON.parse(text); } catch {}
     return { status: res.status, body: data };
   };
-
-  // Each guest is its own client: it signs in and sends every request from its own address, in
-  // X-Forwarded-For the way Railway's edge forwards it, so the per-address limits (5 guest
-  // sign-ins an hour) don't run out across a test file.
-  let nextClient = 1;
-  const clientAddress = () => {
-    const n = nextClient++;
-    return `198.18.${n >> 8}.${n & 255}`;
-  };
-  const from = (address) => ({ 'X-Forwarded-For': address });
 
   const signedIn = ({ token, user }, address) => ({
     token,
