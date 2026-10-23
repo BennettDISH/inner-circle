@@ -5,10 +5,10 @@ Open ideas, planned work and known issues. One line each.
 ## Open
 - No tests for the client (the API has a suite in `test/`).
 - A circle whose last admin leaves has no admin left, and there is no way to remove a member or change a join code.
-- Requests can be sent on inactive listings.
 
 ## Done
 - Circle names and listing titles checked at 255 characters (plain 400, input maxLength); join codes drawn with `crypto.randomInt`, one retry on a clash (2026-10-22).
+- Requests: refused on an inactive listing and a second pending one from the same person (409); the sender can only cancel, only the listing owner accepts, declines or completes (2026-10-22).
 - Content-Security-Policy on (script-src self and the bug-tracker widget; no inline script), since the session token sits in localStorage (2026-10-22).
 - 10 wrong join codes per 15 minutes per address and per account, 5 guest sign-ins an hour per address; `trust proxy` narrowed to Railway's one hop (2026-10-22).
 - Unknown `/api` paths answer a JSON 404; sign-in upserts the profile in one statement; a listing edit can't blank the title or send a non-boolean `active`; every foreign key column is indexed (2026-10-21).

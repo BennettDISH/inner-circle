@@ -522,37 +522,129 @@ describe('requests', () => {
     assert.deepEqual((await owner.as('GET', '/api/requests?direction=outgoing')).body.requests, []);
   });
 
-  it('only the recipient accepts or declines; either side can complete', async () => {
+  const statusOf = async (id) => (await app.db.query('SELECT status FROM requests WHERE id = $1', [id])).rows[0].status;
+
+  it('only the listing owner accepts, declines or completes', async () => {
     const { owner, member, outsider, listing } = await setup();
     const id = (await member.as('POST', '/api/requests', { listing_id: listing.id })).body.request.id;
 
-    const invalid = await owner.as('PUT', `/api/requests/${id}`, { status: 'maybe' });
-    assert.equal(invalid.status, 400);
-    assert.equal(invalid.body.error, 'Invalid status');
+    for (const status of ['maybe', 'pending', undefined, 7]) {
+      const invalid = await owner.as('PUT', `/api/requests/${id}`, { status });
+      assert.equal(invalid.status, 400, String(status));
+      assert.equal(invalid.body.error, 'Invalid status');
+    }
 
-    const sender = await member.as('PUT', `/api/requests/${id}`, { status: 'accepted' });
-    assert.equal(sender.status, 403);
-    assert.equal(sender.body.error, 'Only recipient can accept/decline');
-    assert.equal((await member.as('PUT', `/api/requests/${id}`, { status: 'declined' })).status, 403);
+    // The person who asked can't answer their own request, whatever the status.
+    for (const status of ['accepted', 'declined', 'completed']) {
+      const sender = await member.as('PUT', `/api/requests/${id}`, { status });
+      assert.equal(sender.status, 403, status);
+      assert.equal(sender.body.error, 'Only the listing owner can accept, decline or complete a request');
+    }
 
     const stranger = await outsider.as('PUT', `/api/requests/${id}`, { status: 'completed' });
     assert.equal(stranger.status, 403);
     assert.equal(stranger.body.error, 'Forbidden');
+    assert.equal((await outsider.as('PUT', `/api/requests/${id}`, { status: 'cancelled' })).status, 403);
+    assert.equal(await statusOf(id), 'pending');
 
     const accepted = await owner.as('PUT', `/api/requests/${id}`, { status: 'accepted' });
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.request.status, 'accepted');
 
-    const completed = await member.as('PUT', `/api/requests/${id}`, { status: 'completed' });
+    // Completing is the owner's too.
+    assert.equal((await member.as('PUT', `/api/requests/${id}`, { status: 'completed' })).status, 403);
+    const completed = await owner.as('PUT', `/api/requests/${id}`, { status: 'completed' });
     assert.equal(completed.status, 200);
     assert.equal(completed.body.request.status, 'completed');
+    assert.equal(await statusOf(id), 'completed');
   });
 
-  it('a request can still be sent on an inactive listing (known issue in the roadmap)', async () => {
+  it('the person who asked can only cancel, and only while the request is open', async () => {
     const { owner, member, listing } = await setup();
+    const open = async () => (await member.as('POST', '/api/requests', { listing_id: listing.id })).body.request.id;
+
+    // The owner can't cancel on their behalf.
+    const first = await open();
+    const notOwner = await owner.as('PUT', `/api/requests/${first}`, { status: 'cancelled' });
+    assert.equal(notOwner.status, 403);
+    assert.equal(notOwner.body.error, 'Only the person who asked can cancel a request');
+
+    // Pending, then accepted: both can be cancelled.
+    const cancelled = await member.as('PUT', `/api/requests/${first}`, { status: 'cancelled' });
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.request.status, 'cancelled');
+    const second = await open();
+    await owner.as('PUT', `/api/requests/${second}`, { status: 'accepted' });
+    assert.equal((await member.as('PUT', `/api/requests/${second}`, { status: 'cancelled' })).status, 200);
+    assert.equal(await statusOf(second), 'cancelled');
+
+    // A cancelled request is closed for both: cancelling again, or answering it, is a 409.
+    const again = await member.as('PUT', `/api/requests/${first}`, { status: 'cancelled' });
+    assert.equal(again.status, 409);
+    assert.equal(again.body.error, 'This request is already closed');
+    for (const status of ['accepted', 'declined', 'completed']) {
+      const late = await owner.as('PUT', `/api/requests/${first}`, { status });
+      assert.equal(late.status, 409, status);
+      assert.equal(late.body.error, 'This request was cancelled');
+    }
+    assert.equal(await statusOf(first), 'cancelled');
+
+    // Declined and completed requests can't be taken back either.
+    for (const status of ['declined', 'completed']) {
+      const id = await open();
+      await owner.as('PUT', `/api/requests/${id}`, { status });
+      assert.equal((await member.as('PUT', `/api/requests/${id}`, { status: 'cancelled' })).status, 409, status);
+      assert.equal(await statusOf(id), status);
+    }
+  });
+
+  it('a request on an inactive listing is refused, and works again once it is active', async () => {
+    const { owner, member, outsider, listing } = await setup();
+    const earlier = await member.as('POST', '/api/requests', { listing_id: listing.id });
+    assert.equal(earlier.status, 200);
     await owner.as('PUT', `/api/listings/${listing.id}`, { active: false });
+
     const res = await member.as('POST', '/api/requests', { listing_id: listing.id });
-    assert.equal(res.status, 200);
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'This listing is no longer active');
+    // Someone outside the circle still hears "not a member", not that the listing is hidden.
+    const blocked = await outsider.as('POST', '/api/requests', { listing_id: listing.id });
+    assert.equal(blocked.status, 403);
+    // The request made before stays as it was, and the owner can still answer it.
+    assert.equal(await statusOf(earlier.body.request.id), 'pending');
+    assert.equal((await owner.as('PUT', `/api/requests/${earlier.body.request.id}`, { status: 'declined' })).status, 200);
+
+    await owner.as('PUT', `/api/listings/${listing.id}`, { active: true });
+    assert.equal((await member.as('POST', '/api/requests', { listing_id: listing.id })).status, 200);
+  });
+
+  it('one pending request per person per listing; a settled one frees the next', async () => {
+    const { owner, member, circle, listing } = await setup();
+    const other = await joiner(circle);
+    const count = async () => (await app.db.query('SELECT COUNT(*)::int AS n FROM requests WHERE listing_id = $1', [listing.id])).rows[0].n;
+
+    const first = await member.as('POST', '/api/requests', { listing_id: listing.id, message: 'Saturday?' });
+    assert.equal(first.status, 200);
+    for (let i = 0; i < 3; i++) {
+      const repeat = await member.as('POST', '/api/requests', { listing_id: listing.id, message: 'Saturday?' });
+      assert.equal(repeat.status, 409);
+      assert.equal(repeat.body.error, 'You already have a pending request for this listing');
+    }
+    assert.equal(await count(), 1);
+
+    // Someone else may ask, and the same person may ask for a different listing.
+    assert.equal((await other.as('POST', '/api/requests', { listing_id: listing.id })).status, 200);
+    const ladder = (await owner.as('POST', '/api/listings', { ...drill, circle_id: circle.id, title: 'Ladder' })).body.listing;
+    assert.equal((await member.as('POST', '/api/requests', { listing_id: ladder.id })).status, 200);
+
+    // Once the first is answered it no longer counts as pending...
+    await owner.as('PUT', `/api/requests/${first.body.request.id}`, { status: 'declined' });
+    const next = await member.as('POST', '/api/requests', { listing_id: listing.id });
+    assert.equal(next.status, 200);
+    assert.equal((await member.as('POST', '/api/requests', { listing_id: listing.id })).status, 409);
+    // ...and neither does a cancelled one.
+    await member.as('PUT', `/api/requests/${next.body.request.id}`, { status: 'cancelled' });
+    assert.equal((await member.as('POST', '/api/requests', { listing_id: listing.id })).status, 200);
   });
 });
 

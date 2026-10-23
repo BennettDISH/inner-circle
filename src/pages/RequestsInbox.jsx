@@ -21,10 +21,10 @@ export default function RequestsInbox() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleStatus = (id, status) => {
+  const handleStatus = (id, status, list, setList) => {
     api.put(`/api/requests/${id}`, { status })
       .then(res => {
-        setIncoming(incoming.map(r => r.id === id ? { ...r, status: res.request.status } : r));
+        setList(list.map(r => r.id === id ? { ...r, status: res.request.status } : r));
       })
       .catch(err => alert(err.message));
   };
@@ -73,8 +73,13 @@ export default function RequestsInbox() {
 
               {activeTab === 'incoming' && req.status === 'pending' && (
                 <div className="card__meta" style={{ justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-                  <button className="btn btn--danger btn--small" onClick={() => handleStatus(req.id, 'declined')}>Decline</button>
-                  <button className="btn btn--primary btn--small" onClick={() => handleStatus(req.id, 'accepted')}>Accept</button>
+                  <button className="btn btn--danger btn--small" onClick={() => handleStatus(req.id, 'declined', incoming, setIncoming)}>Decline</button>
+                  <button className="btn btn--primary btn--small" onClick={() => handleStatus(req.id, 'accepted', incoming, setIncoming)}>Accept</button>
+                </div>
+              )}
+              {activeTab === 'outgoing' && (req.status === 'pending' || req.status === 'accepted') && (
+                <div className="card__meta" style={{ justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                  <button className="btn btn--secondary btn--small" onClick={() => handleStatus(req.id, 'cancelled', outgoing, setOutgoing)}>Cancel request</button>
                 </div>
               )}
             </div>

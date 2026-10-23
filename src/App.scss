@@ -275,6 +275,7 @@ a {
   &--accepted { background: rgba($success, 0.15); color: $success; }
   &--declined { background: rgba($danger, 0.15); color: $danger; }
   &--completed { background: rgba($accent, 0.15); color: $accent-light; }
+  &--cancelled { background: $bg-primary; color: $text-secondary; }
   &--admin { background: rgba($accent, 0.15); color: $accent-light; }
   &--count { background: $bg-primary; color: $text-secondary; }
 }
