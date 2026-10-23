@@ -5,15 +5,26 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startApp } from './helpers.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+// The pages come from a throwaway dist/ holding index.html, so the test doesn't depend on a
+// build having run (a missing dist/ makes every page a 404 with Express's own policy).
 let app;
-before(async () => { app = await startApp(); });
-after(async () => { await app?.stop(); });
+let dist;
+before(async () => {
+  dist = fs.mkdtempSync(path.join(os.tmpdir(), 'inner-circle-dist-'));
+  fs.copyFileSync(path.join(root, 'index.html'), path.join(dist, 'index.html'));
+  app = await startApp({ distDir: dist });
+});
+after(async () => {
+  await app?.stop();
+  if (dist) fs.rmSync(dist, { recursive: true, force: true });
+});
 
 async function policyOf(url) {
   const header = (await fetch(app.base + url)).headers.get('content-security-policy');

@@ -16,6 +16,8 @@ import adminRoutes from './routes/admin.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Where the built pages are. Only the tests set DIST_DIR, so they don't need a build first.
+const DIST = process.env.DIST_DIR || path.join(__dirname, 'dist');
 
 // Trust the proxy (Railway) so req.protocol reflects the original https scheme when
 // building the SSO redirect_uri. Exactly one hop: Railway's edge appends the address it saw to
@@ -67,9 +69,9 @@ app.use('/api', (err, req, res, next) => {
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(DIST));
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(DIST, 'index.html'));
 });
 
 initDb()

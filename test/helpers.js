@@ -146,8 +146,9 @@ async function startWaypoint() {
 }
 
 /** Start Postgres, the stand-in Waypoint and the app. Returns helpers and stop().
- *  `adminIds` is ADMIN_CENTRAL_USER_IDS (Waypoint ids start at 1000). */
-export async function startApp({ adminIds = '' } = {}) {
+ *  `adminIds` is ADMIN_CENTRAL_USER_IDS (Waypoint ids start at 1000); `distDir` is DIST_DIR, the
+ *  folder of built pages (the default is the repo's dist/, which only exists after a build). */
+export async function startApp({ adminIds = '', distDir = '' } = {}) {
   const db = await startPostgres();
   const waypoint = await startWaypoint();
   const port = await freePort();
@@ -166,6 +167,7 @@ export async function startApp({ adminIds = '' } = {}) {
       SSO_CLIENT_SECRET: CLIENT_SECRET,
       APP_BASE_URL,
       ADMIN_CENTRAL_USER_IDS: adminIds,
+      DIST_DIR: distDir,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
