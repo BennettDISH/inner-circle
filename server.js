@@ -12,6 +12,7 @@ import circleRoutes from './routes/circles.js';
 import listingRoutes from './routes/listings.js';
 import requestRoutes from './routes/requests.js';
 import adminRoutes from './routes/admin.js';
+import { healthHandler } from './routes/health.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -67,7 +68,7 @@ app.use('/api', (err, req, res, next) => {
   res.status(status).json({ error: status === 500 ? 'Something went wrong' : 'Bad request' });
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', healthHandler());
 
 app.use(express.static(DIST));
 app.get('*', (req, res) => {

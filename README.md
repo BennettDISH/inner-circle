@@ -32,8 +32,14 @@ checks the front end compiles.
 
 ## Deploy
 Railway service `inner-circle` (production environment) auto-deploys on push to `master`.
-`railway.toml` builds with `npm install --include=dev && npm run build` (vite is a
-devDependency) and starts `node server.js`. The schema is created on boot by `initDb()`.
+The build and deploy settings live on the Railway service itself (there is no `railway.toml`):
+Nixpacks builds with `npm install --include=dev && npm run build` (vite is a devDependency)
+and starts `node server.js`, restarting on failure up to 10 times. The schema is created on
+boot by `initDb()`.
+
+`GET /health` is the healthcheck: it runs one `SELECT 1` (3 second limit) and answers
+`200 {"status":"ok","db":"ok"}`, or `503 {"status":"unavailable","db":"not answering"}` with no
+database text when the database errors or stays silent. It is never cached.
 
 ## Environment variables
 Names only; `.env.example` has comments.
@@ -49,6 +55,7 @@ Names only; `.env.example` has comments.
 
 ## Layout
 - `server.js`: Express app, `/health`, the five routers (other `/api` paths are a JSON 404), SPA fallback to `dist/`.
+- `routes/health.js`: the `/health` handler (a `SELECT 1` with a 3 second limit; 200, or 503 without database text).
 - `config/db.js`: pool and schema (`profiles`, `circles`, `circle_members`, `listings`, `requests`).
 - `config/sso.js`: server-to-server calls to the auth service.
 - `middleware/auth.js`: `authenticate` (Bearer JWT, profile re-read from the DB).
