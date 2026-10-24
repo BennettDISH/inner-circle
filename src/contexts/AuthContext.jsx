@@ -52,13 +52,14 @@ export function AuthProvider({ children }) {
     window.location.href = '/login';
   };
 
-  const ssoLogin = (returnTo) => {
+  // options.prompt 'login' is "Switch account": Waypoint asks who you are instead of reusing its session.
+  const ssoLogin = (returnTo, { prompt } = {}) => {
     // The client_id and auth-service URL are held server-side; we only generate a random
     // state and bounce through our own /sso/login, which builds the authorize URL.
     const state = (window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
     sessionStorage.setItem('sso_state', state);
     saveSsoReturn(returnTo);
-    window.location.href = `/api/auth/sso/login?state=${state}`;
+    window.location.href = `/api/auth/sso/login?state=${state}${prompt === 'login' ? '&prompt=login' : ''}`;
   };
 
   return (

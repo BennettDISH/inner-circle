@@ -10,6 +10,10 @@ const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET } = pro
 
 export const CACHE_CONTROL = 'private, max-age=31536000, immutable';
 
+// A call to the bucket that takes longer than this is given up on, so a bucket that stops
+// answering cannot hold a request open for good.
+export const R2_TIMEOUT_MS = 15_000;
+
 // `let`: the tests stand a client in (useClientForTests below), and every importer sees it
 export let r2Enabled = Boolean(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET);
 
@@ -21,21 +25,23 @@ let client = r2Enabled
     })
   : null;
 
+const send = (command) => client.send(command, { abortSignal: AbortSignal.timeout(R2_TIMEOUT_MS) });
+
 export const putImage = (key, buffer, contentType) =>
-  client.send(new PutObjectCommand({
+  send(new PutObjectCommand({
     Bucket: process.env.R2_BUCKET, Key: key, Body: buffer, ContentType: contentType, CacheControl: CACHE_CONTROL,
   }));
 
 export async function getImage(key) {
-  const res = await client.send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
+  const res = await send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
   return { body: res.Body, contentType: res.ContentType ?? 'application/octet-stream', length: res.ContentLength };
 }
 
 // deleting a key that is not there is not an error
 export const deleteImage = (key) =>
-  client.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
+  send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
 
-/** The suite stands a fake S3 client ({ send(command) }) in for R2, or null to take it away. */
+/** The suite stands a fake S3 client ({ send(command, options) }) in for R2, or null to take it away. */
 export function useClientForTests(fake) {
   client = fake;
   r2Enabled = Boolean(fake);

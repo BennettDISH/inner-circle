@@ -50,6 +50,8 @@ router.get('/sso/login', (req, res) => {
   // Encode every param: a raw state containing "&" could append its own client_id or
   // redirect_uri to the authorize URL.
   const params = new URLSearchParams({ client_id: SSO_CLIENT_ID, redirect_uri: redirectUri, state });
+  // "Switch account": Waypoint asks who you are instead of reusing its session
+  if (req.query.prompt === 'login') params.set('prompt', 'login');
   res.redirect(`${AUTH_SERVICE_URL}/oauth/authorize?${params}`);
 });
 

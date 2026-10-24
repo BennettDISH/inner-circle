@@ -265,6 +265,9 @@ router.get('/:id/photos/:photoId', wrap(async (req, res) => {
     res.removeHeader('Content-Length');
     res.status(502).json({ error: 'The photo could not be read — try again' });
   });
+  // a browser that stops asking (a cancelled image, a closed tab) must not leave the bucket's
+  // response half read: pipe never destroys its source, and that connection stays checked out
+  res.on('close', () => body.destroy?.());
   body.pipe(res);
 }));
 

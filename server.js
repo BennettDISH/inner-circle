@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDb } from './config/db.js';
@@ -13,6 +12,7 @@ import listingRoutes from './routes/listings.js';
 import requestRoutes from './routes/requests.js';
 import adminRoutes from './routes/admin.js';
 import { healthHandler } from './routes/health.js';
+import { requestLog, scrubPath } from './middleware/requestLog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +25,10 @@ const DIST = process.env.DIST_DIR || path.join(__dirname, 'dist');
 // X-Forwarded-For, so req.ip is that last entry. `true` would make req.ip the leftmost entry,
 // which the client writes itself, and the join-code and sign-in limits key on req.ip.
 app.set('trust proxy', 1);
+
+// One log line per request with an id: method, path, status, time. Never a query string
+// (Waypoint's ?code=&state= land on the callback), a body, a header or a cookie.
+app.use(requestLog());
 
 // The session token sits in localStorage, so the page may run only its own scripts and the
 // bug-tracker widget's (index.html), and talk only to itself and the widget's server. On top of
@@ -46,7 +50,6 @@ app.use(helmet({
   },
 }));
 app.use(cors());
-app.use(morgan('tiny'));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
@@ -64,7 +67,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.use('/api', (err, req, res, next) => {
   if (res.headersSent) return next(err);
   const status = err.status >= 400 && err.status < 500 ? err.status : 500;
-  if (status === 500) console.error('API error:', err);
+  if (status === 500) console.error(req.id, req.method, scrubPath(req.originalUrl.split('?')[0]), 'API error:', err);
   res.status(status).json({ error: status === 500 ? 'Something went wrong' : 'Bad request' });
 });
 

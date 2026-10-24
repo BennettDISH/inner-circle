@@ -4,12 +4,15 @@
   "description": "Trusted network for friends and family to share what they have, need, and offer",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "start": "node server.js",
     "server": "node --watch server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",
@@ -18,7 +21,6 @@
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0",
     "pg": "^8.13.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

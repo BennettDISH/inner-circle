@@ -254,6 +254,18 @@ export async function startApp({ adminIds = '', distDir = '', fakeR2 = false, ph
       return { ...o, body: Buffer.from(o.body, 'base64') };
     }),
     keys() { return this.objects().map((o) => o.key).sort(); },
+    /** Every call the app made to the bucket: [{ command, key, timeLimited }]. */
+    calls() {
+      const f = path.join(r2Dir, 'calls.jsonl');
+      return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+    },
+    /** A marker file the fake leaves: SLOW_GET (set it) makes gets stall after the first bytes;
+     *  STREAM_CLOSED (read it) says the app let go of such a stream. */
+    flag(name, on = true) {
+      const f = path.join(r2Dir, name);
+      if (on) fs.writeFileSync(f, ''); else fs.rmSync(f, { force: true });
+    },
+    has(name) { return fs.existsSync(path.join(r2Dir, name)); },
     /** Take an object out behind the app's back. */
     remove(key) { fs.rmSync(path.join(r2Dir, `obj-${encodeURIComponent(key)}.json`), { force: true }); },
     fail(what, on = true) {

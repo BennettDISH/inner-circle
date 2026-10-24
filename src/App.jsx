@@ -13,7 +13,7 @@ import RequestsInbox from './pages/RequestsInbox';
 import Admin from './pages/Admin';
 
 function Nav() {
-  const { user, logout } = useAuth();
+  const { user, logout, ssoLogin, ssoEnabled } = useAuth();
   const location = useLocation();
   if (!user) return null;
 
@@ -35,6 +35,11 @@ function Nav() {
         {navLink('/my-listings', 'My Listings')}
         {navLink('/requests', 'Requests')}
         {user.is_admin && navLink('/admin', 'Admin')}
+        {ssoEnabled && (
+          <button onClick={() => ssoLogin(location.pathname, { prompt: 'login' })} className="btn btn--secondary" style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
+            Switch Account
+          </button>
+        )}
         <button onClick={logout} className="btn btn--secondary" style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
           Sign Out
         </button>

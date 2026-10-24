@@ -43,6 +43,9 @@ export default function Login() {
             <button className="btn btn--sso" onClick={() => ssoLogin(back)}>
               Sign in with Waypoint
             </button>
+            <button type="button" className="btn btn--secondary" onClick={() => ssoLogin(back, { prompt: 'login' })}>
+              Use a different Waypoint account
+            </button>
 
             <div className="divider">
               <span>or use email</span>
