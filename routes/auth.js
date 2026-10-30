@@ -55,6 +55,11 @@ router.get('/sso/login', (req, res) => {
   res.redirect(`${AUTH_SERVICE_URL}/oauth/authorize?${params}`);
 });
 
+// Waypoint's names can be longer than the VARCHAR(100) columns; cut them (by characters, as
+// Postgres counts them) rather than fail the sign-in.
+const NAME_MAX = 100;
+const fitName = (name) => [...String(name || '')].slice(0, NAME_MAX).join('');
+
 // Mirror the Waypoint account into profiles in one statement. A look-then-insert let two first
 // sign-ins at once (two tabs, a double click) both insert, and the loser answered 400 with
 // Postgres's duplicate-key message; it also answered with the names from before this sign-in.
@@ -69,7 +74,7 @@ async function findOrCreateProfile(centralUser) {
        SET username = EXCLUDED.username, email = EXCLUDED.email, first_name = EXCLUDED.first_name,
            last_name = EXCLUDED.last_name, updated_at = NOW()
      RETURNING *`,
-    [centralUser.central_user_id, centralUser.username, centralUser.email || null, centralUser.first_name || '', centralUser.last_name || '']
+    [centralUser.central_user_id, centralUser.username, centralUser.email || null, fitName(centralUser.first_name), fitName(centralUser.last_name)]
   );
   return rows[0];
 }
@@ -95,27 +100,35 @@ async function signIn(res, data) {
   res.json(signedIn(profile));
 }
 
-router.post('/register', async (req, res) => {
+// Only what config/sso.js marks for the visitor (Waypoint's refusal with its message, a 400, or
+// a 504 when it doesn't answer) goes back as it is. Anything else, such as a failed profile
+// write, goes to the 500 handler so no Postgres text reaches the page.
+function signInFailed(err, res, next) {
+  if (err.expose) return res.status(err.status).json({ error: err.message });
+  next(err);
+}
+
+router.post('/register', async (req, res, next) => {
   try {
     await signIn(res, await centralRegister(req.body));
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    signInFailed(err, res, next);
   }
 });
 
-router.post('/login', limitWaypointTries, async (req, res) => {
+router.post('/login', limitWaypointTries, async (req, res, next) => {
   try {
     await signIn(res, await centralLogin(req.body));
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    signInFailed(err, res, next);
   }
 });
 
-router.post('/sso-callback', limitWaypointTries, async (req, res) => {
+router.post('/sso-callback', limitWaypointTries, async (req, res, next) => {
   try {
     await signIn(res, await exchangeCode(req.body.code));
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    signInFailed(err, res, next);
   }
 });
 

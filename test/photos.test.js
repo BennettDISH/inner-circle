@@ -246,4 +246,14 @@ describe('listing photos', () => {
     const mine = await owner.as('GET', '/api/listings/mine');
     assert.deepEqual(mine.body.listings.find((l) => l.id === listing.id).photos, [{ id: photoId }]);
   });
+
+  it('shows a hidden listing\'s photos to its owner only, and to members again once it is back', async () => {
+    const { owner, member, listing } = await setup(app);
+    const photoId = (await owner.photo(listing.id, webp())).body.photo.id;
+    assert.equal((await owner.as('PUT', `/api/listings/${listing.id}`, { active: false })).status, 200);
+    assert.equal((await member.getPhoto(listing.id, photoId)).status, 404);
+    assert.equal((await owner.getPhoto(listing.id, photoId)).status, 200);
+    assert.equal((await owner.as('PUT', `/api/listings/${listing.id}`, { active: true })).status, 200);
+    assert.equal((await member.getPhoto(listing.id, photoId)).status, 200);
+  });
 });

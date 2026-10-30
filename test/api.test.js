@@ -149,6 +149,14 @@ describe('auth', () => {
     assert.equal(again.body.user.is_admin, false);
   });
 
+  it('names longer than the 100-character columns are cut, by characters, and the sign-in works', async () => {
+    const account = { central_user_id: 5150, username: 'long', email: null, first_name: '😀'.repeat(150), last_name: 'L'.repeat(150) };
+    const res = await app.request('POST', '/api/auth/sso-callback', { body: { code: app.waypoint.issueCode(account) } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.user.first_name, '😀'.repeat(100));
+    assert.equal(res.body.user.last_name, 'L'.repeat(100));
+  });
+
   it('first sign-ins for the same account at once all succeed and make one profile', async () => {
     const account = { central_user_id: 5200, username: 'lee', email: null, first_name: 'Lee', last_name: '' };
     const codes = Array.from({ length: 6 }, () => app.waypoint.issueCode(account));
@@ -749,6 +757,22 @@ describe('bad input does not take the server down', () => {
     // The pooled connection that held the failed transaction still works.
     const next = await g.as('POST', '/api/circles', { name: 'Second try' });
     assert.equal(next.status, 200);
+  });
+
+  it('a profile the database cannot read is a 500, not a 401 that would sign the page out', async () => {
+    const g = await app.user();
+    const res = await withTableMissing('profiles', () => g.as('GET', '/api/auth/profile'));
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.body, { error: 'Something went wrong' });
+    assert.equal((await g.as('GET', '/api/auth/profile')).status, 200);
+  });
+
+  it('a sign-in whose profile write fails is a 500 without details, not a 400 with Postgres\'s text', async () => {
+    const account = { central_user_id: 5300, username: 'pat', email: null, first_name: 'Pat', last_name: '' };
+    const code = app.waypoint.issueCode(account);
+    const res = await withTableMissing('profiles', () => app.request('POST', '/api/auth/sso-callback', { body: { code } }));
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.body, { error: 'Something went wrong' });
   });
 });
 

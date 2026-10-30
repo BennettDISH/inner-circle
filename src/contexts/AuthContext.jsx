@@ -28,13 +28,13 @@ export function AuthProvider({ children }) {
       })
         .then(res => {
           if (res.ok) return res.json();
-          throw new Error('Invalid token');
+          // Only a 401 means the token is no good. A server error or a dropped connection keeps
+          // it, so the next visit is still signed in.
+          if (res.status === 401) localStorage.removeItem('token');
+          throw new Error(`Profile answered ${res.status}`);
         })
         .then(data => setUser(data.user))
-        .catch(() => {
-          localStorage.removeItem('token');
-          setUser(null);
-        })
+        .catch(() => setUser(null))
         .finally(() => setLoading(false));
     } else {
       setLoading(false);

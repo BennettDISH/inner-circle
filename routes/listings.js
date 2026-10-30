@@ -233,14 +233,15 @@ router.get('/:id/photos/:photoId', wrap(async (req, res) => {
   const id = toId(req.params.id);
   const photoId = toId(req.params.photoId);
   if (id === null || photoId === null) return res.status(400).json({ error: 'Invalid id' });
+  const me = req.user.central_user_id;
+  // a hidden (inactive) listing's photos are its owner's alone, as the listing is
   const { rows } = await pool.query(
     `SELECT ph.object_key, l.central_user_id AS owner_id, l.circle_id
      FROM listing_photos ph JOIN listings l ON l.id = ph.listing_id
-     WHERE l.id = $1 AND ph.id = $2`,
-    [id, photoId]
+     WHERE l.id = $1 AND ph.id = $2 AND (l.active OR l.central_user_id = $3)`,
+    [id, photoId, me]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Not found' });
-  const me = req.user.central_user_id;
   if (rows[0].owner_id !== me && !(await memberOf(me, rows[0].circle_id))) {
     return res.status(403).json({ error: 'Not a member' });
   }

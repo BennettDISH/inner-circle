@@ -1,8 +1,10 @@
 // Guests are refused. Waypoint's own sign-in page offers "Continue as guest" whatever an app
 // wants, so the app answers 403 at the SSO callback (and at register and login, should Waypoint
 // ever return a guest there) before a profile row or a token is made, and has no guest route.
+// Also: a Waypoint that doesn't answer is a 504 (config/sso.js on its own, with a short wait).
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { startApp } from './helpers.js';
 
 let app;
@@ -55,6 +57,27 @@ describe('guests are refused', () => {
       const res = await app.request(method, '/api/auth/guest');
       assert.equal(res.status, 404, method);
       assert.equal(res.body.token, undefined);
+    }
+  });
+});
+
+describe('a Waypoint that does not answer', () => {
+  it('ends every call with a 504 for the visitor instead of holding the sign-in open', async () => {
+    const silent = http.createServer(() => {}); // takes each request and never answers
+    await new Promise((resolve) => silent.listen(0, '127.0.0.1', resolve));
+    process.env.AUTH_SERVICE_URL = `http://127.0.0.1:${silent.address().port}`; // read when sso.js loads
+    try {
+      const { centralRegister, centralLogin, exchangeCode } = await import('../config/sso.js');
+      const quick = { timeoutMs: 100 };
+      const calls = [
+        centralRegister({ username: 'a', email: 'a@example.test', password: 'pw' }, quick),
+        centralLogin({ email: 'a@example.test', password: 'pw' }, quick),
+        exchangeCode('code-1', quick),
+      ];
+      await Promise.all(calls.map((call) => assert.rejects(call, { status: 504, expose: true })));
+    } finally {
+      silent.closeAllConnections();
+      await new Promise((resolve) => silent.close(resolve));
     }
   });
 });
