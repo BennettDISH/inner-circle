@@ -3,7 +3,7 @@ import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
 import { createLimiter } from '../middleware/rateLimit.js';
-import { insertCircle, nameError, textError } from '../services/circles.js';
+import { insertCircle, nameError, textError, OWNER_IN_CIRCLE } from '../services/circles.js';
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.get('/', wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT c.*, cm.role,
        (SELECT COUNT(*)::int FROM circle_members WHERE circle_id = c.id) AS member_count,
-       (SELECT COUNT(*)::int FROM listings WHERE circle_id = c.id AND active) AS listing_count
+       (SELECT COUNT(*)::int FROM listings l WHERE l.circle_id = c.id AND l.active AND ${OWNER_IN_CIRCLE}) AS listing_count
      FROM circles c
      JOIN circle_members cm ON cm.circle_id = c.id
      WHERE cm.central_user_id = $1

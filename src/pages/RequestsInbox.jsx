@@ -64,7 +64,14 @@ export default function RequestsInbox() {
               <p className="card__subtitle" style={{ fontStyle: 'italic', marginBottom: '1rem' }}>
                 "{req.message || 'No message provided'}"
               </p>
-              
+              {req.status === 'pending' && !req.owner_in_circle && (
+                <p className="card__subtitle">
+                  {activeTab === 'incoming'
+                    ? 'You left this circle, but you can still answer.'
+                    : `${req.to_username} left this circle, but can still answer.`}
+                </p>
+              )}
+
               <div className="card__meta" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.5rem', marginTop: '1rem' }}>
                 <span className="byline">
                   {activeTab === 'incoming' ? `From: ${req.from_username}` : `To: ${req.to_username}`}

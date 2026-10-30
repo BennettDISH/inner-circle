@@ -207,4 +207,16 @@ describe('admin lists', () => {
       for (const code of joinCodes) assert.equal(text.includes(code), false, url);
     }
   });
+
+  // last: it changes the counts the tests above read
+  it('a listing whose owner left the circle is still listed, marked, and not counted as active', async () => {
+    const { listing } = (await friend.as('POST', '/api/listings', { circle_id: family.id, kind: 'have', title: 'Wheelbarrow' })).body;
+    await friend.as('DELETE', `/api/circles/${family.id}/leave`);
+    const { items } = (await admin.as('GET', `/api/admin/listings?circle_id=${family.id}`)).body;
+    assert.equal(items.find((l) => l.id === listing.id).owner_in_circle, false);
+    assert.equal(items.find((l) => l.id === book.id).owner_in_circle, true);
+    const garden = (await admin.as('GET', '/api/admin/circles?q=garden')).body.items[0];
+    assert.equal(garden.listing_count, 3);
+    assert.equal(garden.active_listing_count, 1);
+  });
 });

@@ -669,6 +669,115 @@ describe('requests', () => {
   });
 });
 
+describe('a listing whose owner left the circle', () => {
+  /** A circle with a member and a poster; the poster has a listing in it. */
+  async function setup() {
+    const { owner: creator, circle } = await newCircle();
+    const member = await joiner(circle);
+    const poster = await joiner(circle);
+    const listing = (await poster.as('POST', '/api/listings', { ...drill, circle_id: circle.id })).body.listing;
+    return { creator, member, poster, circle, listing };
+  }
+  const ids = (res) => res.body.listings.map((l) => l.id);
+  const leave = (who, circle) => who.as('DELETE', `/api/circles/${circle.id}/leave`);
+  const join = (who, circle) => who.as('POST', '/api/circles/join', { join_code: circle.join_code });
+
+  it('leaves the circle list and count, for everyone still there', async () => {
+    const { member, poster, circle, listing } = await setup();
+    assert.deepEqual(ids(await member.as('GET', `/api/listings?circle_id=${circle.id}`)), [listing.id]);
+    assert.equal((await member.as('GET', '/api/circles')).body.circles[0].listing_count, 1);
+
+    await leave(poster, circle);
+    assert.deepEqual(ids(await member.as('GET', `/api/listings?circle_id=${circle.id}`)), []);
+    assert.deepEqual(ids(await member.as('GET', `/api/listings?circle_id=${circle.id}&kind=have`)), []);
+    assert.equal((await member.as('GET', '/api/circles')).body.circles[0].listing_count, 0);
+  });
+
+  it('cannot be requested, and makes no request row', async () => {
+    const { member, poster, circle, listing } = await setup();
+    await leave(poster, circle);
+
+    const res = await member.as('POST', '/api/requests', { listing_id: listing.id, message: 'Still there?' });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'This listing is no longer active');
+    assert.deepEqual((await member.as('GET', '/api/requests?direction=outgoing')).body.requests, []);
+    // Someone outside the circle still hears only that, not that the listing is hidden.
+    assert.equal((await (await app.user()).as('POST', '/api/requests', { listing_id: listing.id })).status, 403);
+  });
+
+  it('stays in its owner\'s own list, marked, and can still be edited or deleted', async () => {
+    const { poster, member, circle, listing } = await setup();
+    assert.equal((await poster.as('GET', '/api/listings/mine')).body.listings[0].owner_in_circle, true);
+
+    await leave(poster, circle);
+    const mine = (await poster.as('GET', '/api/listings/mine')).body.listings[0];
+    assert.equal(mine.id, listing.id);
+    assert.equal(mine.circle_name, circle.name);
+    assert.equal(mine.active, true); // nothing on the listing itself changed
+    assert.equal(mine.owner_in_circle, false);
+
+    // An edit doesn't bring it back, not even turning it on.
+    assert.equal((await poster.as('PUT', `/api/listings/${listing.id}`, { title: 'Corded drill', active: true })).status, 200);
+    assert.deepEqual(ids(await member.as('GET', `/api/listings?circle_id=${circle.id}`)), []);
+    assert.equal((await poster.as('DELETE', `/api/listings/${listing.id}`)).status, 200);
+    assert.deepEqual((await poster.as('GET', '/api/listings/mine')).body.listings, []);
+  });
+
+  it('comes back when its owner rejoins, as it was', async () => {
+    const { member, poster, circle, listing } = await setup();
+    const off = (await poster.as('POST', '/api/listings', { ...drill, title: 'Switched off', circle_id: circle.id })).body.listing;
+    await poster.as('PUT', `/api/listings/${off.id}`, { active: false });
+    await leave(poster, circle);
+
+    assert.equal((await join(poster, circle)).status, 200);
+    assert.deepEqual(ids(await member.as('GET', `/api/listings?circle_id=${circle.id}`)), [listing.id]); // not the one switched off
+    assert.equal((await member.as('GET', '/api/circles')).body.circles[0].listing_count, 1);
+    assert.equal((await poster.as('GET', '/api/listings/mine')).body.listings.every((l) => l.owner_in_circle), true);
+    const asked = await member.as('POST', '/api/requests', { listing_id: listing.id });
+    assert.equal(asked.status, 200);
+    assert.equal(asked.body.request.status, 'pending');
+  });
+
+  it('touches nothing in another circle, or anyone else\'s listing in this one', async () => {
+    const { creator, member, poster, circle } = await setup();
+    const theirs = (await creator.as('POST', '/api/listings', { ...drill, title: 'Ladder', circle_id: circle.id })).body.listing;
+    const elsewhere = (await newCircle('Elsewhere')).circle;
+    assert.equal((await join(poster, elsewhere)).status, 200);
+    const friend = await joiner(elsewhere);
+    const kept = (await poster.as('POST', '/api/listings', { ...drill, title: 'Tent', circle_id: elsewhere.id })).body.listing;
+
+    await leave(poster, circle);
+    assert.deepEqual(ids(await friend.as('GET', `/api/listings?circle_id=${elsewhere.id}`)), [kept.id]);
+    assert.equal((await friend.as('POST', '/api/requests', { listing_id: kept.id })).status, 200);
+    assert.deepEqual(ids(await member.as('GET', `/api/listings?circle_id=${circle.id}`)), [theirs.id]);
+    assert.equal((await member.as('POST', '/api/requests', { listing_id: theirs.id })).status, 200);
+    const mine = (await poster.as('GET', '/api/listings/mine')).body.listings;
+    assert.equal(mine.find((l) => l.id === kept.id).owner_in_circle, true);
+  });
+
+  it('leaves requests already open as they were: both sides can still close them', async () => {
+    const { creator, member, poster, circle, listing } = await setup();
+    const open = (await member.as('POST', '/api/requests', { listing_id: listing.id, message: 'Saturday?' })).body.request;
+    const second = (await creator.as('POST', '/api/requests', { listing_id: listing.id, message: 'Sunday?' })).body.request;
+    await leave(poster, circle);
+
+    const incoming = (await poster.as('GET', '/api/requests?direction=incoming')).body.requests;
+    assert.deepEqual(incoming.map((r) => r.id).sort((a, b) => a - b), [open.id, second.id]);
+    assert.ok(incoming.every((r) => r.status === 'pending' && r.owner_in_circle === false));
+    const outgoing = (await member.as('GET', '/api/requests?direction=outgoing')).body.requests;
+    assert.equal(outgoing[0].listing_title, drill.title);
+    assert.equal(outgoing[0].owner_in_circle, false);
+
+    assert.equal((await poster.as('PUT', `/api/requests/${open.id}`, { status: 'accepted' })).body.request.status, 'accepted');
+    assert.equal((await creator.as('PUT', `/api/requests/${second.id}`, { status: 'cancelled' })).body.request.status, 'cancelled');
+
+    await join(poster, circle);
+    const back = (await member.as('GET', '/api/requests?direction=outgoing')).body.requests[0];
+    assert.equal(back.status, 'accepted');
+    assert.equal(back.owner_in_circle, true);
+  });
+});
+
 describe('malformed ids', () => {
   it('answer 400, and well-formed ids that match nothing answer 404', async () => {
     const g = await app.user();

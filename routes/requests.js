@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
-import { textError } from '../services/circles.js';
+import { textError, OWNER_IN_CIRCLE } from '../services/circles.js';
 
 const router = Router();
 
@@ -21,13 +21,20 @@ async function createRequest(client, listingId, userId, message) {
   const listing = listings[0];
   if (!listing) return { status: 404, error: 'Listing not found' };
   if (listing.central_user_id === userId) return { status: 400, error: 'Cannot request your own listing' };
-  const { rows: members } = await client.query(
-    'SELECT 1 FROM circle_members WHERE circle_id = $1 AND central_user_id = $2',
-    [listing.circle_id, userId]
-  );
-  if (!members[0]) return { status: 403, error: 'Not a member of this circle' };
-  // An inactive listing is hidden from its circle, so nobody should be asking for it.
-  if (!listing.active) return { status: 409, error: 'This listing is no longer active' };
+  const isMember = async (id) => {
+    const { rows } = await client.query(
+      'SELECT 1 FROM circle_members WHERE circle_id = $1 AND central_user_id = $2',
+      [listing.circle_id, id]
+    );
+    return !!rows[0];
+  };
+  if (!(await isMember(userId))) return { status: 403, error: 'Not a member of this circle' };
+  // An inactive listing is hidden from its circle, and so is one whose owner left the circle, so
+  // nobody should be asking for it. Requests already open stay as they are: the owner can still
+  // answer and the person who asked can still cancel, and rejoining changes nothing about them.
+  if (!listing.active || !(await isMember(listing.central_user_id))) {
+    return { status: 409, error: 'This listing is no longer active' };
+  }
   const { rows: pending } = await client.query(
     `SELECT 1 FROM requests WHERE listing_id = $1 AND from_user_id = $2 AND status = 'pending'`,
     [listingId, userId]
@@ -71,7 +78,7 @@ router.get('/', wrap(async (req, res) => {
   const col = direction === 'outgoing' ? 'from_user_id' : 'to_user_id';
 
   const { rows } = await pool.query(
-    `SELECT r.*, l.title AS listing_title, l.kind AS listing_kind,
+    `SELECT r.*, l.title AS listing_title, l.kind AS listing_kind, ${OWNER_IN_CIRCLE} AS owner_in_circle,
        fp.username AS from_username, fp.first_name AS from_first_name, fp.last_name AS from_last_name,
        tp.username AS to_username, tp.first_name AS to_first_name, tp.last_name AS to_last_name
      FROM requests r

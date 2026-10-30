@@ -47,7 +47,7 @@ export default function MyListings() {
       ) : (
         <div className="card-grid">
           {listings.map(listing => (
-            <div key={listing.id} className={`card ${!listing.active ? 'card--inactive' : ''}`} style={{ opacity: listing.active ? 1 : 0.6 }}>
+            <div key={listing.id} className={`card ${!listing.active ? 'card--inactive' : ''}`} style={{ opacity: listing.active && listing.owner_in_circle ? 1 : 0.6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <span className={`badge badge--${listing.kind}`}>{listing.kind.toUpperCase()}</span>
@@ -56,6 +56,11 @@ export default function MyListings() {
                 <span className="byline">in {listing.circle_name}</span>
               </div>
               <h3 className="card__title" style={{ marginTop: '0.5rem' }}>{listing.title}</h3>
+              {!listing.owner_in_circle && (
+                <p className="card__subtitle">
+                  <strong>Hidden:</strong> you left this circle.{listing.active && ' Rejoin it to bring this listing back.'}
+                </p>
+              )}
               <p className="card__subtitle">{listing.description}</p>
               <ListingPhotos
                 listing={listing}
@@ -74,13 +79,15 @@ export default function MyListings() {
               )}
               
               <div className="card__meta" style={{ justifyContent: 'flex-end', gap: '0.5rem' }}>
-                <button 
-                  className="btn btn--secondary btn--small"
-                  onClick={() => toggleActive(listing.id, listing.active)}
-                >
-                  {listing.active ? 'Deactivate' : 'Reactivate'}
-                </button>
-                <button 
+                {listing.owner_in_circle && (
+                  <button
+                    className="btn btn--secondary btn--small"
+                    onClick={() => toggleActive(listing.id, listing.active)}
+                  >
+                    {listing.active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                )}
+                <button
                   className="btn btn--danger btn--small"
                   onClick={() => deleteListing(listing.id)}
                 >

@@ -256,4 +256,14 @@ describe('listing photos', () => {
     assert.equal((await owner.as('PUT', `/api/listings/${listing.id}`, { active: true })).status, 200);
     assert.equal((await member.getPhoto(listing.id, photoId)).status, 200);
   });
+
+  it('shows a listing\'s photos only to its owner once the owner left the circle, and to members again on rejoining', async () => {
+    const { owner, member, circle, listing } = await setup(app);
+    const photoId = (await owner.photo(listing.id, webp())).body.photo.id;
+    assert.equal((await owner.as('DELETE', `/api/circles/${circle.id}/leave`)).status, 200);
+    assert.equal((await member.getPhoto(listing.id, photoId)).status, 404);
+    assert.equal((await owner.getPhoto(listing.id, photoId)).status, 200);
+    assert.equal((await owner.as('POST', '/api/circles/join', { join_code: circle.join_code })).status, 200);
+    assert.equal((await member.getPhoto(listing.id, photoId)).status, 200);
+  });
 });

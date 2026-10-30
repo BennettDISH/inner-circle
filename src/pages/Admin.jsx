@@ -83,6 +83,7 @@ const TABS = {
         <span className={`badge badge--${l.kind}`}>{l.kind.toUpperCase()}</span>{' '}
         <strong>{l.title}</strong>
         {!l.active && <span className="admin-muted"> (inactive)</span>}
+        {!l.owner_in_circle && <span className="admin-muted"> (hidden: owner left the circle)</span>}
         {l.description && <div className="admin-muted">{l.description}</div>}
         {l.availability && <div className="admin-muted">Availability: {l.availability}</div>}
         {l.tags?.length > 0 && <div className="card__meta">{l.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>}

@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import pool, { toId } from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
 import { wrap } from '../middleware/wrap.js';
-import { nameError, textError } from '../services/circles.js';
+import { nameError, textError, OWNER_IN_CIRCLE } from '../services/circles.js';
 import { r2Enabled, putImage, getImage } from '../config/r2.js';
 import {
   MAX_PHOTO_BYTES, MAX_PHOTOS_PER_LISTING, MB, PHOTOS_OFF, photoBudget, sniffImage, newPhotoKey,
@@ -46,7 +46,7 @@ router.get('/', wrap(async (req, res) => {
   }
 
   const params = [circleId];
-  let where = 'l.circle_id = $1 AND l.active';
+  let where = `l.circle_id = $1 AND l.active AND ${OWNER_IN_CIRCLE}`;
   if (kind && VALID_KINDS.includes(kind)) {
     params.push(kind);
     where += ` AND l.kind = $${params.length}`;
@@ -234,11 +234,12 @@ router.get('/:id/photos/:photoId', wrap(async (req, res) => {
   const photoId = toId(req.params.photoId);
   if (id === null || photoId === null) return res.status(400).json({ error: 'Invalid id' });
   const me = req.user.central_user_id;
-  // a hidden (inactive) listing's photos are its owner's alone, as the listing is
+  // a hidden listing's photos (inactive, or its owner left the circle) are its owner's alone, as
+  // the listing is
   const { rows } = await pool.query(
     `SELECT ph.object_key, l.central_user_id AS owner_id, l.circle_id
      FROM listing_photos ph JOIN listings l ON l.id = ph.listing_id
-     WHERE l.id = $1 AND ph.id = $2 AND (l.active OR l.central_user_id = $3)`,
+     WHERE l.id = $1 AND ph.id = $2 AND ((l.active AND ${OWNER_IN_CIRCLE}) OR l.central_user_id = $3)`,
     [id, photoId, me]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Not found' });
@@ -292,7 +293,7 @@ router.delete('/:id/photos/:photoId', wrap(async (req, res) => {
 
 router.get('/mine', wrap(async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT l.*, c.name AS circle_name, ${PHOTOS}
+    `SELECT l.*, c.name AS circle_name, ${OWNER_IN_CIRCLE} AS owner_in_circle, ${PHOTOS}
      FROM listings l
      JOIN circles c ON c.id = l.circle_id
      WHERE l.central_user_id = $1

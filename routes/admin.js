@@ -5,6 +5,7 @@ import { wrap } from '../middleware/wrap.js';
 import { databaseAnswers } from './health.js';
 import { r2Enabled } from '../config/r2.js';
 import { SSO_ENABLED } from '../config/sso.js';
+import { OWNER_IN_CIRCLE } from '../services/circles.js';
 
 // Site admin (ADMIN_CENTRAL_USER_IDS): look-only lists of everything in the app. Every route
 // is a GET; nothing here writes. Join codes stay out, since a code is the key to a circle.
@@ -127,7 +128,7 @@ router.get('/circles', list((query) => {
     select: `c.id, c.name, c.description, c.created_by, cp.username AS created_by_username, c.created_at,
       (SELECT COUNT(*)::int FROM circle_members WHERE circle_id = c.id) AS member_count,
       (SELECT COUNT(*)::int FROM listings WHERE circle_id = c.id) AS listing_count,
-      (SELECT COUNT(*)::int FROM listings WHERE circle_id = c.id AND active) AS active_listing_count`,
+      (SELECT COUNT(*)::int FROM listings l WHERE l.circle_id = c.id AND l.active AND ${OWNER_IN_CIRCLE}) AS active_listing_count`,
     from: 'circles c JOIN profiles cp ON cp.central_user_id = c.created_by',
     ...f,
     order: 'c.created_at DESC, c.id DESC',
@@ -166,7 +167,8 @@ router.get('/listings', list((query) => {
   if (userId !== null) f.add('l.central_user_id = $?', userId);
   return {
     select: `l.id, l.circle_id, c.name AS circle_name, l.central_user_id, p.username, l.kind, l.category,
-      l.title, l.description, l.availability, l.tags, l.active, l.created_at, l.updated_at,
+      l.title, l.description, l.availability, l.tags, l.active, ${OWNER_IN_CIRCLE} AS owner_in_circle,
+      l.created_at, l.updated_at,
       (SELECT COUNT(*)::int FROM requests WHERE listing_id = l.id) AS request_count`,
     from: `listings l
       JOIN circles c ON c.id = l.circle_id

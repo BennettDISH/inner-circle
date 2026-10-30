@@ -21,6 +21,12 @@ export function textError(value, label) {
   return null;
 }
 
+// Whether a listing's owner is still a member of its circle (SQL; `l` is the listing). A listing
+// shows in its circle only while this holds. It is read from the membership rather than stored,
+// so however a membership ends the listing is hidden, and rejoining brings it back as it was.
+export const OWNER_IN_CIRCLE = `EXISTS (SELECT 1 FROM circle_members om
+                                        WHERE om.circle_id = l.circle_id AND om.central_user_id = l.central_user_id)`;
+
 // Six characters of 0-9 and A-Z, each drawn with crypto.randomInt: the wrong-code limit only
 // holds if the next code can't be guessed from the last one.
 const CODE_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';

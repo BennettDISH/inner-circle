@@ -7,6 +7,7 @@ Open ideas, planned work and known issues. One line each.
 - A circle whose last admin leaves has no admin left, and there is no way to remove a member or change a join code.
 
 ## Done
+- A listing is hidden from its circle while its owner is not a member: gone from the lists, counts and photos, no new requests, read from the membership so rejoining brings it back; requests already open stay open (2026-10-30).
 - Guests are refused: no "Continue as guest" button or `/api/auth/guest` route, and a Waypoint guest gets a 403 at the SSO callback (and register/login) before any profile or token exists (2026-10-23). Guest accounts already in production are left alone.
 - Circle names and listing titles checked at 255 characters (plain 400, input maxLength); join codes drawn with `crypto.randomInt`, one retry on a clash (2026-10-22).
 - Requests: refused on an inactive listing and a second pending one from the same person (409); the sender can only cancel, only the listing owner accepts, declines or completes (2026-10-22).
